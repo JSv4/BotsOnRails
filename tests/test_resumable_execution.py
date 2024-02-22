@@ -3,6 +3,7 @@ from typing import NoReturn
 
 from nlx.decorators import node_for_tree
 from nlx.tree import ExecutionTree
+from nlx.types import SpecialTypes
 
 
 class TestResumeExecution(unittest.TestCase):
@@ -13,112 +14,46 @@ class TestResumeExecution(unittest.TestCase):
         node = node_for_tree(tree)
 
         @node(next_nodes={'open': 'open', 'turn_back': 'turn_back'}, start_node=True)
-        def explore_the_cave(*args, **kwargs) -> str:
+        def explore_the_cave(route: int, **kwargs) -> NoReturn:
             print("You have been exploring the cave system for hours when you stumble across a an ancient-looking "
                   "metal door flecked with veins of a strange, glowing green mineral. A symbol that looks vaguely like "
                   "a human skull with a more oblong back can just be made out, barely raised from the ancient surface.")
-            decision = input("Which what do you do?[turn back] or [open] the door?")
+            print("Which what do you do?[turn back] or [open] the door?")
+            decision = 'open' if route == 1 else 'turn_back'
             return decision
 
         @node()
-        def turn_back(*args, **kwargs):
+        def turn_back(*args, **kwargs) -> str:
             print("Like a scared, meek little kitten you turn back for higher ground. A sinkhole opens up and swallows "
-                  "your cautious self. As you fall into the depths, you think, 'I shoulda stayed on the bus like Ms. "
-                  "Haltleson told me to.'")
+                  "your cautious self. As you sink into the depths, you think, 'I shoulda stayed on the bus like Ms. "
+                  "Haltleson told me to.' No snack time for you.")
+            return "You are dead. And lame."
 
         @node(wait_for_approval=True, next_nodes={"yes": "press_the_button", "no": "turn_back"})
-        def open(*args, **kwargs):
+        def open(*args, **kwargs) -> NoReturn:
             print("Behind the door is a polished rock face of deepest ebony. Those strange green mineral veins"
                   "cris-cross the surface and seem to gather size and intensity as they flow toward a large round"
                   "raised gem at the center. It looks like a button.")
-            decision = input("Do you [press it] or [turn back]?")
-            print(f"Are you sure you want to {decision}? [yes] or [no]?")
-            return
+            print(f"Are you sure you want to press it? [yes] or [no]?")
 
-        def press_the_button()
+        @node()
+        def press_the_button(*args, **kwargs) -> str:
             print(f"Woah... the earth starts to shake. You look around and think, 'yah, we're doing this!' If only you "
-                  f"knew what it was you had unleashed.")
-
-        @node()
-        def handle_invalid(input: str, **kwargs):
-            return "Aww, too bad"
-
-        tree.compile()
-
-        print("Result:")
-        print(tree.run('valid'))
-
-        assert tree.run('valid') == "Congrats!"
-        assert tree.run('invalid') == "Aww, too bad"
-
-    def test_functional_router(self):
-
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
-
-        def route_function(input: int) -> str:
-            if input % 3 == 0:
-                return 'comedy_comes_in_threes'
-            return 'boring_boring'
-
-        @node(
-            start_node=True,
-            next_nodes=route_function,
-            func_router_possible_node_annot=[
-                'boring_boring',
-                'comedy_comes_in_threes'
-            ]
-        )
-        def start_node(input: int, **kwargs) -> int:
-            """
-            Where we just want an initial router, we can pass through the input value to the output. You could
-            also process the input here too, of course.
-            """
-            return input
-
-        @node()
-        def boring_boring(input: int, **kwargs) -> str:
-            return "Have I told you about the benefits of a high fiber diet?"
-
-        @node()
-        def comedy_comes_in_threes(value: int, **kwargs) -> NoReturn:
-            return f"Did I tell you the one about the {value} that walked into a bar?"
+                  f"knew what it was you had unleashed. And yet... you find yourself lacking all curiosity. Why "
+                  f"shouldn't they all suffer. They made you miss snack time.")
+            return "Everyone is dead."
 
         tree.compile(type_checking=True)
-        assert tree.run(4) == 'Have I told you about the benefits of a high fiber diet?'
-        assert tree.run(3) == 'Did I tell you the one about the 3 that walked into a bar?'
+        results = tree.run(1)
+        assert results == SpecialTypes.EXECUTION_HALTED
 
-    def test_functional_routing_with_no_annot(self):
-        """
-        Where we use a functional router, we require you provide a list of possible outputs so we can
-        produce a visualization showing the possible execution pathway.
-        """
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
-
-        def route_function(input: int) -> str:
-            if input % 3 == 0:
-                return 'comedy_comes_in_threes'
-            return 'boring_boring'
-
-        # Leave off the func_router_possible_node_annot
-        @node(
-            start_node=True,
-            next_nodes=route_function
+        halted_state = tree.model_dump()
+        destroy_the_world = tree.run_from_node(
+            'open',
+            prev_execution_state=halted_state,
+            override_output='yes'
         )
-        def start_node(input: int, **kwargs) -> int:
-            return input
-
-        @node()
-        def boring_boring(input: int, **kwargs) -> str:
-            return "Have I told you about the benefits of a high fiber diet?"
-
-        @node()
-        def comedy_comes_in_threes(value: int, **kwargs) -> NoReturn:
-            return f"Did I tell you the one about the {value} that walked into a bar?"
-
-        with self.assertRaises(ValueError):
-            tree.compile(type_checking=True)
+        assert destroy_the_world == "Everyone is dead."
 
 
 if __name__ == '__main__':

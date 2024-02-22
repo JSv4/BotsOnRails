@@ -1,7 +1,7 @@
 import collections.abc
 import logging
 import uuid
-from typing import Dict, Union, Callable, Any, Optional, NoReturn
+from typing import Dict, Callable, Any, Optional, NoReturn
 from graphviz import Digraph
 
 import networkx as nx
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, UUID4
 
 from nlx.nodes import BaseNode
 from nlx.types import OT, SpecialTypes
-from nlx.utils import match_types, is_iterable_of_primitives
+from nlx.utils import match_types
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class ExecutionTree(BaseModel):
     nodes: Dict[str, BaseNode] = Field(default={})
     node_ids: Dict[str, UUID4] = Field(default={})
     node_names: Dict[UUID4, str] = Field(default={})
-    output: Any = Field(default=SpecialTypes.NORETURN)
+    output: Any = Field(default=SpecialTypes.NO_RETURN)
     compiled: bool = Field(default=False)
 
     @property
@@ -290,7 +290,7 @@ class ExecutionTree(BaseModel):
             *args,
             auto_approve: bool = False,
             runtime_args: Optional[Dict] = None
-    ) -> dict:
+    ) -> Any:
         """
         Initiates the execution of the workflow from the root node, processing through the tree based on defined paths.
 
@@ -333,11 +333,13 @@ class ExecutionTree(BaseModel):
             for name, node in self.nodes.items():
                 if node.waiting_for_approval:
                     if self.locked_at_node_name is not None:
-                        raise ValueError("Tree has multiple nodes waiting for approval simultaneously. Initial version"
-                                         "requires you take a single execution pathway.")
-                    self.locked_at_node_name = locked_at_node_name
-                    break
+                        raise ValueError(f"Your tree appears to have stopped at multiple execution points - node "
+                                         f"{self.locked_at_node_name} and {name}. We don't support that (yet...)")
+                    else:
+                        self.locked_at_node_name = name
 
+            if self.locked_at_node_name:
+                return SpecialTypes.EXECUTION_HALTED
             return self.output
 
     def run_from_node(
@@ -348,7 +350,7 @@ class ExecutionTree(BaseModel):
             has_approval: bool = False,
             override_output: Optional[Any] = None,
             runtime_args: Optional[Dict] = None
-    ) -> dict:
+    ) -> Any:
         """
         If we want to replay execution from after a specific node of the tree, such as instances where we
         have an approval node and want to pass its outputs on subsequent run (or potentially have a non-deterministic
@@ -387,6 +389,9 @@ class ExecutionTree(BaseModel):
         start_node = self.nodes[node_name]
         input_chain = {}
 
+        # Clear any residual state from last run
+        self._clear_execution_state()
+
         if prev_execution_state is not None:
             exec_state = {**prev_execution_state}
             self.input = exec_state['input']
@@ -405,9 +410,12 @@ class ExecutionTree(BaseModel):
             logger.debug(f"run_from_node() - input_data: {input_data}")
 
         else:
+            # First let's clear any residual state in the tree and nodes
             self.input = input_val
             input_data = input_val
-            output_data = None
+            output_data = SpecialTypes.NO_RETURN
+
+
 
         # If this is not None, we don't rerun the node, we start AFTER
         # the node and pass through the override_output.
@@ -451,14 +459,15 @@ class ExecutionTree(BaseModel):
             )
 
         # Figure out where we have a stopped node and get name
-        # TODO - what if we have multiple stop points that occur simultaneously?
-        # Solution (for now) - only allow single pathway
+        # ATM we do NOT support having multiple breakpoints in parallel branches.
         locked_at_node_name = None
         for name, node in self.nodes.items():
             if node.waiting_for_approval:
-                locked_at_node_name = name
-                break
-        self.locked_at_node_name = locked_at_node_name
+                if self.locked_at_node_name is not None:
+                    raise ValueError(f"Your tree appears to have stopped at multiple execution points - node "
+                                     f"{self.locked_at_node_name} and {name}. We don't support that (yet...)")
+                else:
+                    self.locked_at_node_name = name
 
         # If we're picking up from an earlier execution state, need do to some surgery to graft
         # the part of the DAG that just executed on the previous execution state
@@ -492,8 +501,9 @@ class ExecutionTree(BaseModel):
         else:
             exec_state = self.model_dump()
 
-        # Return tree execution state
-        return exec_state
+        if self.locked_at_node_name:
+            return SpecialTypes.EXECUTION_HALTED
+        return self.output
 
     @property
     def has_cycle(self):
@@ -502,9 +512,10 @@ class ExecutionTree(BaseModel):
         directional)
         :return:
         """
-        undirected_cycles = nx.cycle_basis(self.generate_nx_digraph(ignore_compile_flag=True).to_undirected())
-        print(f"Undirected cycles: {undirected_cycles}")
-        return len(undirected_cycles) > 0
+        # undirected_cycles = nx.cycle_basis(self.generate_nx_digraph(ignore_compile_flag=True).to_undirected())
+        simple_cycles = list(nx.simple_cycles(self.generate_nx_digraph(ignore_compile_flag=True)))
+        print(f"Cycles: {simple_cycles}")
+        return len(simple_cycles) > 0
 
     def generate_nx_digraph(self, ignore_compile_flag: bool = False) -> nx.DiGraph:
         """

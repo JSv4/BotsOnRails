@@ -5,5 +5,6 @@ IT = TypeVar('IT')  # Generic for Input Type
 OT = TypeVar('OT')  # Generic for Output Type
 
 
-class SpecialTypes(str, Enum):
-    NORETURN = 'NORETURN'
+class SpecialTypes(Enum):
+    NO_RETURN = 'NO_RETURN'
+    EXECUTION_HALTED = 'EXECUTION_HALTED'

@@ -249,7 +249,8 @@ class BaseNode(BaseModel):
         :return:
         """
         print(f"Node {self.name} - run_next with input `{input_data}` and output `{output_data}`")
+        print(f"Runtime args: {runtime_args}")
         self.input_data = input_data
         self.output_data = output_data
         self.executed = True
-        self.route_output(*output_data, runtime_args=runtime_args)
+        self.route_output(output_data, runtime_args=runtime_args)
