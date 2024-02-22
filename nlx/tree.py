@@ -415,11 +415,18 @@ class ExecutionTree(BaseModel):
             input_data = input_val
             output_data = SpecialTypes.NO_RETURN
 
-
-
         # If this is not None, we don't rerun the node, we start AFTER
         # the node and pass through the override_output.
         if override_output is not None:
+
+            # Make sure type is compatible with node signature
+            if start_node.output_type == NoReturn:
+                raise ValueError("You are overriding the output of a node that has a NoReturn return signature. "
+                                 "Can't do that. Future you will love current you. Trust us.")
+            elif type(override_output) != start_node.output_type:
+                raise ValueError(f"The override output you are providing has type {type(override_output)}, which "
+                                 f"appears incompatible with node return type of {start_node.output_type}")
+
             logger.debug(f"Override_output is not None")
             start_node.run_next(
                 input_data,

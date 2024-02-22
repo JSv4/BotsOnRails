@@ -30,11 +30,12 @@ class TestResumeExecution(unittest.TestCase):
             return "You are dead. And lame."
 
         @node(wait_for_approval=True, next_nodes={"yes": "press_the_button", "no": "turn_back"})
-        def open(*args, **kwargs) -> NoReturn:
+        def open(*args, **kwargs) -> str:
             print("Behind the door is a polished rock face of deepest ebony. Those strange green mineral veins"
                   "cris-cross the surface and seem to gather size and intensity as they flow toward a large round"
                   "raised gem at the center. It looks like a button.")
             print(f"Are you sure you want to press it? [yes] or [no]?")
+            return "no"  # default return
 
         @node()
         def press_the_button(*args, **kwargs) -> str:
