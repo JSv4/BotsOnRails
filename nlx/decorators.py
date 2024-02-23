@@ -14,7 +14,7 @@ def node_for_tree(execution_tree):
 
     This approach allows for the dynamic association of function logic with nodes in an execution tree, facilitating
     the construction of complex execution flows within a modular and manageable framework. Each node in the tree
-    represents a unit of work or decision-making logic that can be executed as part of the tree's overall workflow.
+    represents a unit of work or decision-making logic that can be executed as part of the tree's overall workflows.
 
     Parameters:
     - execution_tree (ExecutionTree): An instance of an ExecutionTree to which the nodes created by this decorator

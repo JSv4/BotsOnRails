@@ -1,4 +1,5 @@
 import collections.abc
+import inspect
 import json
 import uuid
 from typing import Any, Callable, get_type_hints, NoReturn, List, get_origin, Union, get_args, Tuple
@@ -126,11 +127,13 @@ def is_optional_annotation(annotation) -> bool:
     print(f"Args: {get_args(annotation)}")
     return get_origin(annotation) is Union and type(None) in get_args(annotation)
 
+
 def type_allowed_under_optional_annot(type_annot, annotation) -> bool:
     for arg in get_args(annotation):
         if type_annot == arg:
             return True
     return False
+
 
 def match_types(
         previous_func_output: Any,
@@ -151,10 +154,10 @@ def match_types(
 
     def is_not_str_or_bytes_str(annotation):
         return (
-            annotation != str and
-            annotation != bytes and
-            annotation != bytearray and
-            not isinstance(annotation, (str, bytes, bytearray))
+                annotation != str and
+                annotation != bytes and
+                annotation != bytearray and
+                not isinstance(annotation, (str, bytes, bytearray))
         )
 
     def unpackable_annotation(annotation):
@@ -163,9 +166,13 @@ def match_types(
 
     # Extract argument types for function B
     input_params = get_type_hints(next_function)
+    input_signature_params = inspect.signature(next_function).parameters
     input_params.pop('return')  # We don't want return type on the input annotation hint
     print("Match types")
     print(input_params)
+    print(input_signature_params)
+    if 'args' in input_signature_params:
+        print(input_signature_params['args'])
     print(previous_func_output)
     print(get_origin(previous_func_output))
     print(isinstance(get_origin(previous_func_output), (Callable, collections.abc.Callable)))
@@ -184,8 +191,12 @@ def match_types(
             if input_params == {}:
                 pass  # no actual inputs
             elif len(input_params.items()) != 0:
-                raise ValueError(f"Function preceding {next_function.__name__} has return type of NoReturn yet function "
-                                 f"expects inputs of {type(input_params)}")
+                raise ValueError(
+                    f"Function preceding {next_function.__name__} has return type of NoReturn yet function "
+                    f"expects inputs of {type(input_params)}")
+        elif 'args' in input_signature_params:
+            # If we have *args in next function, we're cool with any positional arguments.
+            pass
         elif len(input_params.items()) == 1:
             if previous_func_output != list(input_params.values())[0]:
                 raise ValueError(f"Mismatched input between output ({previous_func_output}) and next input "
@@ -215,8 +226,8 @@ def match_types(
 
         # We have a couple different cases to handle here
         # 1) We have an output iterable with more constituent members than positional args in next function (that's an
-        # error)
-        if len(prev_f_unpacked_annot) > len(next_func_input_types):
+        # error) UNLESS there's an *args parameter
+        if len(prev_f_unpacked_annot) > len(next_func_input_types) and 'args' not in input_signature_params:
             raise ValueError(f"Function {next_function.__name__} is going to receive too many positional arguments: "
                              f"{prev_f_unpacked_annot}")
 
@@ -232,12 +243,10 @@ def match_types(
         # we have a) more than enough values for non-optional values and b) any remaining values have same type as
         # what's expected for corresponding optional values
         print(F"b_arg_types: {next_func_input_types}")
-
-        # TODO - need to handle Union rather than Optional here because Optional is just alias for Union with None.
-
         if len(prev_f_unpacked_annot) < len(next_func_input_types):
-            raise ValueError(f"Function {next_function.__name__} has at least {len(next_func_input_types)} required positional "
-                             f"args, yet output value of preceding function only has {len(prev_f_unpacked_annot)} members")
+            raise ValueError(
+                f"Function {next_function.__name__} has at least {len(next_func_input_types)} required positional "
+                f"args, yet output value of preceding function only has {len(prev_f_unpacked_annot)} members")
 
         print(f"Optional inputs for {next_function.__name__}: {prev_f_unpacked_annot}")
         for index, opt_inp in enumerate(prev_f_unpacked_annot):
@@ -247,6 +256,7 @@ def match_types(
                 elif not type_allowed_under_optional_annot(opt_inp, next_func_input_types[index]):
                     raise ValueError(f"Positional argument # {index} for function {next_function.__name__} is Union "
                                      f"({next_func_input_types[index]}) but doesn't allow type {opt_inp}")
+
 
 def is_iterable_of_primitives(value: Any) -> bool:
     """Check if the value is an iterable of primitives (excluding strings/bytes).

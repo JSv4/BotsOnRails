@@ -30,8 +30,8 @@ class ExecutionTree(BaseModel):
 
         Attributes:
             id (str): A unique identifier for the execution tree instance.
-            root_node_id (Optional[str]): The ID of the root node, setting the entry point of the workflow.
-            nodes (Dict[str, BaseNode]): A dictionary mapping node names to their instances, forming the workflow structure.
+            root_node_id (Optional[str]): The ID of the root node, setting the entry point of the workflows.
+            nodes (Dict[str, BaseNode]): A dictionary mapping node names to their instances, forming the workflows structure.
             node_ids (Dict[str, str]): A mapping of node names to their UUIDs, facilitating node reference and management.
             node_names (Dict[str, str]): A reverse mapping of UUIDs to node names, aiding in node identification.
             output (Dict[str, Any]): Captures output data from nodes for access post-execution or during human review points.
@@ -42,10 +42,10 @@ class ExecutionTree(BaseModel):
             link_nodes: Establishes execution flow between nodes, supporting both sequential and conditional routing.
             get_node: Fetches a node instance by its name, facilitating dynamic interaction with the execution tree.
             get_node_by_uuid: Retrieves a node instance by its UUID, ensuring accurate node manipulation.
-            run: Initiates the workflow execution from the root node, processing through the tree based on defined paths.
+            run: Initiates the workflows execution from the root node, processing through the tree based on defined paths.
             run_from_node: Allows restarting or continuing execution from a specific node, useful for iterative review or modification.
             generate_graph: Constructs a graph representation of the execution tree, aiding in visualization and analysis.
-            visualize: Displays a graphical representation of the workflow, optionally saving it to disk.
+            visualize: Displays a graphical representation of the workflows, optionally saving it to disk.
             print_graph_to_command_line: Outputs a text-based representation of the execution tree to the command line for quick inspection.
 
         This orchestrator stands out for its ability to integrate deep human insights directly into automated workflows,
@@ -65,7 +65,7 @@ class ExecutionTree(BaseModel):
     @property
     def root(self) -> Optional[BaseNode]:
         """
-        Retrieves the root node of the execution tree, serving as the starting point for the workflow.
+        Retrieves the root node of the execution tree, serving as the starting point for the workflows.
 
         Returns:
             Optional[BaseNode]: The root node instance if set, otherwise None.
@@ -138,7 +138,7 @@ class ExecutionTree(BaseModel):
     def _add_static_route(self, source_node_name: str, routing: Dict[OT, str],
                           **kwargs):
         """
-        Creates a routing node in the execution tree, capable of directing workflow based on dynamic conditions or
+        Creates a routing node in the execution tree, capable of directing workflows based on dynamic conditions or
         outputs where `routing` dictionary maps specific output result to the name of the node that should
         handle that output condition. If you want to use a routing function, you should create that node separately and
         then add and link it to requisite nodes.
@@ -167,7 +167,7 @@ class ExecutionTree(BaseModel):
 
     def _add_direct_route(self, from_node: str, to_node: str):
         """
-        Establishes an execution flow link between two nodes, defining the workflow path.
+        Establishes an execution flow link between two nodes, defining the workflows path.
 
         Parameters:
             from_node (str): The name of the node from which the link originates.
@@ -292,7 +292,7 @@ class ExecutionTree(BaseModel):
             runtime_args: Optional[Dict] = None
     ) -> Any:
         """
-        Initiates the execution of the workflow from the root node, processing through the tree based on defined paths.
+        Initiates the execution of the workflows from the root node, processing through the tree based on defined paths.
 
         Parameters:
             :param input_val: The initial input to be passed to the root node for processing.
@@ -300,7 +300,7 @@ class ExecutionTree(BaseModel):
             :param auto_approve:
 
         Returns:
-            dict: A dictionary capturing the execution state and outputs of the workflow.
+            dict: A dictionary capturing the execution state and outputs of the workflows.
 
         """
         print(f"run() - with args {args}")
@@ -609,7 +609,7 @@ class ExecutionTree(BaseModel):
     @property
     def results_flow(self) -> str:
         """
-        Generates a textual diagram of executed nodes in a tree-based workflow,
+        Generates a textual diagram of executed nodes in a tree-based workflows,
         including their names, input, and output data.
 
         """
@@ -648,7 +648,7 @@ class ExecutionTree(BaseModel):
 
     def generate_mermaid_diagram(self) -> str:
         """
-        Generates a Mermaid class diagram of executed nodes in a tree-based workflow,
+        Generates a Mermaid class diagram of executed nodes in a tree-based workflows,
         including their names, input, and output data as class properties.
 
         Returns:
