@@ -42,10 +42,11 @@ path = "nlx/__about__.py"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  "pytest-cov>=4"
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
+test-cov = "pytest --cov {args:tests}"
 cov-report = [
   "- coverage combine",
   "coverage report",
