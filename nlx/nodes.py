@@ -113,6 +113,7 @@ class BaseNode(BaseModel):
                             self.selected_route
                         ).run(
                             *original_output,
+                            has_approval=runtime_args.get('auto_approve', False),
                             runtime_args=runtime_args
                         )
                     else:
@@ -120,6 +121,7 @@ class BaseNode(BaseModel):
                             self.selected_route
                         ).run(
                             original_output,
+                            has_approval=runtime_args.get('auto_approve', False),
                             runtime_args=runtime_args
                         )
                 else:
@@ -127,6 +129,7 @@ class BaseNode(BaseModel):
                         self.selected_route
                     ).run(
                         original_output,
+                        has_approval=runtime_args.get('auto_approve', False),
                         runtime_args=runtime_args
                     )
             # If we passed in routing dictionary mapping outputs (preferably primitives) to
@@ -147,6 +150,7 @@ class BaseNode(BaseModel):
                             self.selected_route
                         ).run(
                             *original_output,
+                            has_approval=runtime_args.get('auto_approve', False),
                             runtime_args=runtime_args
                         )
                     else:
@@ -154,6 +158,7 @@ class BaseNode(BaseModel):
                             self.selected_route
                         ).run(
                             original_output,
+                            has_approval=runtime_args.get('auto_approve', False),
                             runtime_args=runtime_args
                         )
                 else:
@@ -161,6 +166,7 @@ class BaseNode(BaseModel):
                         self.selected_route
                     ).run(
                         original_output,
+                        has_approval=runtime_args.get('auto_approve', False),
                         runtime_args=runtime_args
                     )
             # Finally, if it's a single uuid, run it.
@@ -176,6 +182,7 @@ class BaseNode(BaseModel):
                             self.route
                         ).run(
                             *original_output,
+                            has_approval=runtime_args.get('auto_approve', False),
                             runtime_args=runtime_args
                         )
                     else:
@@ -183,6 +190,7 @@ class BaseNode(BaseModel):
                             self.route
                         ).run(
                             original_output,
+                            has_approval=runtime_args.get('auto_approve', False),
                             runtime_args=runtime_args
                         )
                 else:
@@ -190,6 +198,7 @@ class BaseNode(BaseModel):
                         self.route
                     ).run(
                         original_output,
+                        has_approval=runtime_args.get('auto_approve', False),
                         runtime_args=runtime_args
                     )
 

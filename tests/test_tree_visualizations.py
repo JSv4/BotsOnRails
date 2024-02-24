@@ -88,11 +88,30 @@ class TestTreeValidations(unittest.TestCase):
             halted_execution_diagram
         )
 
+        full_execution_diagram = """classDiagram
+    class a {
+        +String name = "a"
+        +InputData input = ()
+        +OutputData output = Hello!
+    }
+    class b {
+        +String name = "b"
+        +InputData input = ('Hello!',)
+        +OutputData output = Hello!
+    }
+    class c {
+        +String name = "c"
+        +InputData input = ('Hello!',)
+        +OutputData output = Hello!
+    }
+    a --|> b : routed
+    b --|> c : routed"""
+
         # Re-run but don't stop for approvals
         self.tree.run(auto_approve=True)
         print(f"`{self.tree.generate_mermaid_diagram()}`")
         self.assertEqual(
             self.tree.generate_mermaid_diagram(),
-            halted_execution_diagram
+            full_execution_diagram
         )
 
