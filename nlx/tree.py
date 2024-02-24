@@ -41,7 +41,6 @@ class ExecutionTree(BaseModel):
             add_node: Adds a new node to the execution tree, optionally setting it as the root node.
             link_nodes: Establishes execution flow between nodes, supporting both sequential and conditional routing.
             get_node: Fetches a node instance by its name, facilitating dynamic interaction with the execution tree.
-            get_node_by_uuid: Retrieves a node instance by its UUID, ensuring accurate node manipulation.
             run: Initiates the workflows execution from the root node, processing through the tree based on defined paths.
             run_from_node: Allows restarting or continuing execution from a specific node, useful for iterative review or modification.
             generate_graph: Constructs a graph representation of the execution tree, aiding in visualization and analysis.
@@ -81,7 +80,8 @@ class ExecutionTree(BaseModel):
         """
         Expects that positional args will be the output of a function, so should be array of length 1
         """
-        if self.output != 'NoOutput':
+        print(f"Output {self.output} ({type(self.output)})")
+        if self.output != SpecialTypes.NO_RETURN:
             raise ValueError("Already handled output for tree suggesting you had parallel execution pathways... The "
                              "initial version of NLX requires you take a single execution pathway through"
                              "your DAG.")
@@ -126,7 +126,7 @@ class ExecutionTree(BaseModel):
         if root:
             self.root_node_id = node.id
 
-        node.get_node = lambda x: self.nodes.get(x, None)
+        node.get_node = lambda x: self.get_node(x)
         node.handle_output = self.handle_output
 
         if node.route is not None:
@@ -191,6 +191,8 @@ class ExecutionTree(BaseModel):
             raise ValueError("You need to register a root node. Use the start_node=True argument on root node "
                              "decorator")
 
+        self._clear_execution_state()
+
         for node_name, node in self.nodes.items():
 
             if not node.route:
@@ -250,7 +252,7 @@ class ExecutionTree(BaseModel):
 
         self.compiled = True
 
-    def get_node(self, name: str) -> BaseNode:
+    def get_node(self, name: str) -> Optional[BaseNode]:
         """
         Fetches a node instance by its name from the execution tree.
 
@@ -260,24 +262,11 @@ class ExecutionTree(BaseModel):
         Returns:
             BaseNode: The node instance corresponding to the provided name.
         """
-        return self.nodes[name]
-
-    def get_node_by_uuid(self, id: str) -> BaseNode:
-        """
-        Retrieves a node instance by its UUID from the execution tree.
-
-        Parameters:
-            id (str): The UUID of the node to retrieve.
-
-        Returns:
-            BaseNode: The node instance corresponding to the provided UUID.
-        """
-        name = self.node_names[id]
-        return self.nodes[name]
+        return self.nodes.get(name, None)
 
     def _clear_execution_state(self):
 
-        self.output = 'NoOutput'
+        self.output = SpecialTypes.NO_RETURN
         self.locked_at_node_name = None
         self.input = None
 
