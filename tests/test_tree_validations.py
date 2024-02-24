@@ -7,7 +7,7 @@ from nlx.decorators import node_for_tree
 from nlx.tree import ExecutionTree
 
 
-class TestTypeChecking(unittest.TestCase):
+class TestTreeValidations(unittest.TestCase):
     def test_override_noreturn_type(self):
         """
         Make sure we can't specify an override return value for node typed to return NoReturn
