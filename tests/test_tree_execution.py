@@ -1,9 +1,6 @@
 import unittest
-from typing import NoReturn
-
 
 from nlx.decorators import node_for_tree
-from nlx.nodes import BaseNode
 from nlx.tree import ExecutionTree
 from nlx.types import SpecialTypes
 

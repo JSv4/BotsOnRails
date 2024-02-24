@@ -336,7 +336,7 @@ class ExecutionTree(BaseModel):
             input_val: Any = SpecialTypes.NOT_PROVIDED,
             prev_execution_state: Optional[dict] = None,
             has_approval: bool = False,
-            override_output: Optional[Any] = None,
+            override_output: Optional[Any] = SpecialTypes.NOT_PROVIDED,
             runtime_args: Optional[Dict] = None
     ) -> Any:
         """
@@ -359,7 +359,7 @@ class ExecutionTree(BaseModel):
             dict: The updated execution state reflecting changes from the continued execution.
         """
 
-        if input_val is None and prev_execution_state is None and override_output is None:
+        if input_val is SpecialTypes.NOT_PROVIDED and prev_execution_state is None and override_output is SpecialTypes.NOT_PROVIDED:
             raise ValueError("You need to either provide a previous execution state of the tree, an input_val for "
                              "specified node or an override_output for the specified node.")
 
@@ -368,6 +368,9 @@ class ExecutionTree(BaseModel):
                 f"You must call .compile() after adding the last node before you can use the Execution Tree. "
                 f"Calling it for you!")
             self.compile()
+
+        if runtime_args is None:
+            runtime_args = {}
 
         # If you want to replay the entire tree for some reason, just grab initial inputs from previous run
         logger.debug(f"Tree {self.id} - run_from_node {node_name}")
@@ -405,7 +408,7 @@ class ExecutionTree(BaseModel):
 
         # If this is not None, we don't rerun the node, we start AFTER
         # the node and pass through the override_output.
-        if override_output is not None:
+        if override_output is not SpecialTypes.NOT_PROVIDED:
 
             logger.debug(f"Override output for {start_node.name}: {override_output}")
 
@@ -424,7 +427,7 @@ class ExecutionTree(BaseModel):
                 runtime_args={
                     "input_chain": input_chain,
                     "input": self.input,
-                    **(runtime_args if runtime_args is not None else {})
+                    **runtime_args
                 }
             )
 
@@ -444,16 +447,29 @@ class ExecutionTree(BaseModel):
 
         # Otherwise, the node never completed and we run the node AGAIN but do not pause execution
         else:
-            logger.debug(f"No overrides... rerun execution...")
-            start_node.run(
-                input_data,
-                has_approval=has_approval,
-                runtime_args={
-                    "input_chain": input_chain,
-                    "input": self.input,
-                    **runtime_args
-                }
-            )
+            print(f"No overrides... rerun execution with input_data {input_data} / input chain {input_chain}")
+            print(f"Start node {start_node}")
+            print(f"Runtime_args: {runtime_args}")
+
+            if input_data == SpecialTypes.NOT_PROVIDED:
+                start_node.run(
+                    has_approval=has_approval,
+                    runtime_args={
+                        "input_chain": input_chain,
+                        "input": self.input,
+                        **(runtime_args if isinstance(runtime_args, dict) else {})
+                    }
+                )
+            else:
+                start_node.run(
+                    input_data,
+                    has_approval=has_approval,
+                    runtime_args={
+                        "input_chain": input_chain,
+                        "input": self.input,
+                        **runtime_args
+                    }
+                )
 
         # Figure out where we have a stopped node and get name
         # ATM we do NOT support having multiple breakpoints in parallel branches.
