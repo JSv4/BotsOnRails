@@ -61,9 +61,38 @@ class TestTreeValidations(unittest.TestCase):
                                      f'last node before you can visualize the Execution Tree. Calling it for you!',
                                      ])
 
-    def test_results_flow(self):
+    def test_mermaid_results_propagation(self):
 
         self.assertEqual(
-            self.tree.results_flow,
+            self.tree.generate_mermaid_diagram(),
             None
         )
+
+        halted_execution_diagram = """classDiagram
+    class a {
+        +String name = "a"
+        +InputData input = ()
+        +OutputData output = Hello!
+    }
+    class b {
+        +String name = "b"
+        +InputData input = ('Hello!',)
+        +OutputData output = Hello!
+        ----- !! HALT !! -----    }
+    a --|> b : routed"""
+
+        self.tree.run()
+        print(f"`{self.tree.generate_mermaid_diagram()}`")
+        self.assertEqual(
+            self.tree.generate_mermaid_diagram(),
+            halted_execution_diagram
+        )
+
+        # Re-run but don't stop for approvals
+        self.tree.run(auto_approve=True)
+        print(f"`{self.tree.generate_mermaid_diagram()}`")
+        self.assertEqual(
+            self.tree.generate_mermaid_diagram(),
+            halted_execution_diagram
+        )
+

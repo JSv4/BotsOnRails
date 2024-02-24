@@ -304,6 +304,7 @@ class ExecutionTree(BaseModel):
         if not isinstance(runtime_args, dict):
             runtime_args = {}
         runtime_args['input'] = args
+        runtime_args['auto_approve'] = auto_approve
 
         if self.root:
             print(f"Root node exists... proceed to run with {args}")
@@ -616,49 +617,7 @@ class ExecutionTree(BaseModel):
         else:
             plt.show()
 
-    @property
-    def results_flow(self) -> Optional[str]:
-        """
-        Generates a textual diagram of executed nodes in a tree-based workflows,
-        including their names, input, and output data.
-        """
-
-        if not self.compiled:
-            logger.warning(
-                f"You must call .compile() after adding the last node before you can visualize the Execution "
-                f"Tree. Calling it for you!")
-            self.compile()
-
-        state = self.model_dump()
-        executed_nodes = {name: node for name, node in state["nodes"].items() if node["executed"]}
-
-        if len(executed_nodes.items()) == 0:
-            return None
-
-        diagram = "Execution Diagram:\n-------------------\n"
-        for name, node in executed_nodes.items():
-            # Node name and execution status
-            diagram += f'Node: "{name}\n"'
-            # Input data
-            input_data = f'Input: {node["input_data"] if node["input_data"] != "" else "None"}'
-            # Output data
-            output_data = f'Output: {node["output_data"]}'
-            diagram += f'\n{input_data}\t-->\t{output_data}\n'
-
-            # Show the selected route if it exists
-            selected_route = node.get("selected_route")
-            if selected_route:
-                if isinstance(selected_route, list):
-                    for route in selected_route:
-                        selected_route_name = state["node_names"].get(route, None)
-                        if selected_route_name is not None:
-                            diagram += f"\t\tRoute to --> {selected_route_name}\n"
-                else:
-                    selected_route_name = state["node_names"].get(selected_route, None)
-                    diagram += f"\t\tRoute to --> {selected_route_name}\n"
-        return diagram
-
-    def generate_mermaid_diagram(self) -> str:
+    def generate_mermaid_diagram(self) -> Optional[str]:
         """
         Generates a Mermaid class diagram of executed nodes in a tree-based workflows,
         including their names, input, and output data as class properties.
@@ -676,35 +635,35 @@ class ExecutionTree(BaseModel):
         state = self.model_dump()
         executed_nodes = {name: node for name, node in state["nodes"].items() if node["executed"]}
 
+        if len(executed_nodes.items()) == 0:
+            return None
+
         # Mermaid diagram initialization
         diagram = "classDiagram\n"
+
+        relationships = []
 
         # Generate classes for each node
         for name, node in executed_nodes.items():
             # Define the class with name and properties
-            class_name = name.replace("_", "").capitalize()  # Simplify node name for class name
+            class_name = name.replace("_", "")  # Simplify node name for class name
             input_data = node["input_data"] if node["input_data"] != "" else "None"
             output_data = node["output_data"]
             diagram += f'    class {class_name} {{\n'
             diagram += f'        +String name = "{name}"\n'
             diagram += f'        +InputData input = {input_data}\n'
             diagram += f'        +OutputData output = {output_data}\n'
+            if node['waiting_for_approval']:
+                diagram +='        ----- !! HALT !! -----'
             diagram += '    }\n'
 
-        # Generate relationships
-        for name, node in executed_nodes.items():
-            class_name = name.replace("_", "").capitalize()
-            selected_route = node.get("selected_route")
+            selected_route = node['selected_route']
+            print(f"Selected route for {name}: {selected_route}")
             if selected_route:
-                if isinstance(selected_route, list):
-                    for route in selected_route:
-                        selected_route_name = state["node_names"].get(route, "").replace("_", "").capitalize()
-                        if selected_route_name:
-                            diagram += f'    {class_name} --|> {selected_route_name} : routes\n'
-                else:
-                    selected_route_name = state["node_names"].get(selected_route, "").replace("_", "").capitalize()
-                    if selected_route_name:
-                        diagram += f'    {class_name} --|> {selected_route_name} : route\n'
+                selected_route = selected_route.replace("_", "")
+                relationships.append(f'    {name} --|> {selected_route} : routed')
+
+        diagram += "\n".join(relationships)
 
         return diagram
 
