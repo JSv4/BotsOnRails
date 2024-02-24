@@ -8,7 +8,8 @@ from nlx.tree import ExecutionTree
 
 
 class TestTreeUtilities(unittest.TestCase):
-    def lookup_node_fail(self):
+
+    def test_lookup_node_fail(self):
         """
         Make sure we can't specify an override return value for node typed to return NoReturn
         """
