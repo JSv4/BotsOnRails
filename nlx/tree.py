@@ -445,6 +445,7 @@ class ExecutionTree(BaseModel):
                 }
             )
 
+        # TODO - no test case is picking this up
         # Otherwise, the node never completed and we run the node AGAIN but do not pause execution
         else:
             print(f"No overrides... rerun execution with input_data {input_data} / input chain {input_chain}")
@@ -604,7 +605,6 @@ class ExecutionTree(BaseModel):
         my_dpi = 96
         plt.figure(3, figsize=(1024 / my_dpi, 1024 / my_dpi))
         nx.draw(G, pos, with_labels=True, node_color='skyblue', node_size=700, edge_color='k')
-        plt.show(figsize=[46.82 * .5 ** (.5 * 6), 33.11 * .5 ** (.5 * 6)], dpi=141)
 
         if save_to_disk is not None:
             plt.savefig(save_to_disk)
