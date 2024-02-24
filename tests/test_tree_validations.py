@@ -108,6 +108,22 @@ class TestTreeValidations(unittest.TestCase):
                                      f'node before you can use the Execution Tree. Calling it for you!',
                                      ])
 
+    def test_run_from_node_without_compile(self):
+        tree = ExecutionTree()
+        node = node_for_tree(tree)
+
+        @node(start_node=True)
+        def a(val: str, **kwargs) -> str:
+            return val
+
+        with self.assertLogs(nlx.tree.__name__, level='WARNING') as cm:
+            result = tree.run_from_node("a", override_output="Goodbye")
+
+        self.assertEqual(result, "Goodbye")
+        self.assertEqual(cm.output, [f'WARNING:{nlx.tree.__name__}:You must call .compile() after adding the last '
+                                     f'node before you can use the Execution Tree. Calling it for you!',
+                                     ])
+
     def test_cant_override_output_for_noreturn_node(self):
         """
         Make sure if a node has a NoReturn type, you can't force a return type
