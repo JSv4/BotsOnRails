@@ -336,7 +336,7 @@ class ExecutionTree(BaseModel):
             input_val: Any = SpecialTypes.NOT_PROVIDED,
             prev_execution_state: Optional[dict] = None,
             has_approval: bool = False,
-            override_output: Optional[Any] = SpecialTypes.NOT_PROVIDED,
+            override_output: Optional[Any] = SpecialTypes.NO_RETURN,
             runtime_args: Optional[Dict] = None
     ) -> Any:
         """
@@ -359,7 +359,7 @@ class ExecutionTree(BaseModel):
             dict: The updated execution state reflecting changes from the continued execution.
         """
 
-        if input_val is SpecialTypes.NOT_PROVIDED and prev_execution_state is None and override_output is SpecialTypes.NOT_PROVIDED:
+        if input_val is SpecialTypes.NOT_PROVIDED and prev_execution_state is None and override_output is SpecialTypes.NO_RETURN:
             raise ValueError("You need to either provide a previous execution state of the tree, an input_val for "
                              "specified node or an override_output for the specified node.")
 
@@ -408,7 +408,7 @@ class ExecutionTree(BaseModel):
 
         # If this is not None, we don't rerun the node, we start AFTER
         # the node and pass through the override_output.
-        if override_output is not SpecialTypes.NOT_PROVIDED:
+        if override_output is not SpecialTypes.NO_RETURN:
 
             logger.debug(f"Override output for {start_node.name}: {override_output}")
 
