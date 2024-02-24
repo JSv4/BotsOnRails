@@ -16,6 +16,7 @@ nx_filename = "test_nx_visualization.png"
 class TestTreeValidations(unittest.TestCase):
 
     def setUp(self):
+        self.maxDiff = None
         self.tree = ExecutionTree()
         node = node_for_tree(self.tree)
 
@@ -61,8 +62,44 @@ class TestTreeValidations(unittest.TestCase):
                                      f'last node before you can visualize the Execution Tree. Calling it for you!',
                                      ])
 
+    def test_mermaid_diagram_without_compile(self):
+
+        self.tree._clear_execution_state()
+        self.tree.compiled = False
+
+        with self.assertLogs(nlx.tree.__name__, level='WARNING') as cm:
+            self.assertEqual(
+                self.tree.generate_mermaid_diagram(),
+                None
+            )
+
+            halted_execution_diagram = """classDiagram
+    class a {
+        +String name = "a"
+        +InputData input = ()
+        +OutputData output = Hello!
+    }
+    class b {
+        +String name = "b"
+        +InputData input = ('Hello!',)
+        +OutputData output = Hello!
+        ----- !! HALT !! -----    }
+    a --|> b : routed"""
+
+            self.tree.run()
+            diagram = self.tree.generate_mermaid_diagram()
+            print(diagram)
+            self.assertEqual(
+                diagram,
+                halted_execution_diagram
+            )
+        self.assertEqual(cm.output, [f'WARNING:{nlx.tree.__name__}:You must call .compile() after adding the '
+                                     f'last node before you can visualize the Execution Tree. Calling it for you!',
+                                     ])
+
     def test_mermaid_results_propagation(self):
 
+        self.tree._clear_execution_state()
         self.assertEqual(
             self.tree.generate_mermaid_diagram(),
             None
@@ -82,7 +119,6 @@ class TestTreeValidations(unittest.TestCase):
     a --|> b : routed"""
 
         self.tree.run()
-        print(f"`{self.tree.generate_mermaid_diagram()}`")
         self.assertEqual(
             self.tree.generate_mermaid_diagram(),
             halted_execution_diagram
