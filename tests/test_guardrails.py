@@ -48,3 +48,8 @@ class TestTypeChecking(unittest.TestCase):
 
         assert 'we don\'t support circular flows' in str(e.exception)
 
+    def test_bad_tree_actions(self):
+        tree = ExecutionTree()
+
+        with self.assertRaises(ValueError):
+            tree.add_node("Yo", "A Node I am not", root=True)

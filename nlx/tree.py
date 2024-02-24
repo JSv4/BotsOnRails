@@ -74,11 +74,7 @@ class ExecutionTree(BaseModel):
             ValueError: If the root node ID does not correspond to a BaseNode instance.
         """
         if self.root_node_id is not None:
-            matching_node = self.nodes[self.node_names[self.root_node_id]]
-            if isinstance(matching_node, BaseNode) or issubclass(matching_node.__class__, BaseNode):
-                return matching_node
-            else:
-                raise ValueError(f"Root note has wrong type {type(matching_node)}")
+            return self.nodes[self.node_names[self.root_node_id]]
         return None
 
     def handle_output(self, *args):
@@ -108,6 +104,9 @@ class ExecutionTree(BaseModel):
             ValueError: If a node with the same name already exists in the tree.
         """
         logger.debug(f"Add node `{name}`: {node}")
+
+        if not isinstance(node, BaseNode) and not issubclass(node.__class__, BaseNode):
+            raise ValueError(f"Node has wrong type {type(node)}... cannot add")
 
         if self.root_node_id is not None and root:
             raise ValueError(f"Root node {self.root_node_id} is already registered!")
