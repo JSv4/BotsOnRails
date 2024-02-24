@@ -592,6 +592,10 @@ class ExecutionTree(BaseModel):
                          image file. Otherwise, displays the visualization. Defaults to None.
         """
 
+        # TODO - tree.py:604: DeprecationWarning: nx.nx_pydot.graphviz_layout depends on
+        #  the pydot package, which has known issues and is not actively maintained. Consider using
+        #  nx.nx_agraph.graphviz_layout instead.
+
         if not self.compiled:
             logger.warning(
                 f"You must call .compile() after adding the last node before you can visualize the Execution "
@@ -613,11 +617,10 @@ class ExecutionTree(BaseModel):
             plt.show()
 
     @property
-    def results_flow(self) -> str:
+    def results_flow(self) -> Optional[str]:
         """
         Generates a textual diagram of executed nodes in a tree-based workflows,
         including their names, input, and output data.
-
         """
 
         if not self.compiled:
@@ -628,6 +631,9 @@ class ExecutionTree(BaseModel):
 
         state = self.model_dump()
         executed_nodes = {name: node for name, node in state["nodes"].items() if node["executed"]}
+
+        if len(executed_nodes.items()) == 0:
+            return None
 
         diagram = "Execution Diagram:\n-------------------\n"
         for name, node in executed_nodes.items():

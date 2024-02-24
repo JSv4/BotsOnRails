@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 from typing import Tuple, Optional, List, Union, NoReturn, Dict, Callable
 
+import nlx
+
 from nlx.decorators import node_for_tree
 from nlx.tree import ExecutionTree
 
@@ -45,12 +47,23 @@ class TestTreeValidations(unittest.TestCase):
 
         self.tree.compiled = False
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            target_file_path = (Path(tmpdirname) / nx_filename).__str__()
-            self.tree.visualize_via_nx(
-                save_to_disk=target_file_path
-            )
-            self.assertEqual(
-                open(target_file_path, "rb").read(),
-                open((visualizations_dir / nx_filename).__str__(), "rb").read()
-            )
+        with self.assertLogs(nlx.tree.__name__, level='WARNING') as cm:
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                target_file_path = (Path(tmpdirname) / nx_filename).__str__()
+                self.tree.visualize_via_nx(
+                    save_to_disk=target_file_path
+                )
+                self.assertEqual(
+                    open(target_file_path, "rb").read(),
+                    open((visualizations_dir / nx_filename).__str__(), "rb").read()
+                )
+        self.assertEqual(cm.output, [f'WARNING:{nlx.tree.__name__}:You must call .compile() after adding the '
+                                     f'last node before you can visualize the Execution Tree. Calling it for you!',
+                                     ])
+
+    def test_results_flow(self):
+
+        self.assertEqual(
+            self.tree.results_flow,
+            None
+        )
