@@ -58,7 +58,7 @@ class ExecutionTree(BaseModel):
     nodes: Dict[str, BaseNode] = Field(default={})
     node_ids: Dict[str, UUID4] = Field(default={})
     node_names: Dict[UUID4, str] = Field(default={})
-    output: Any = Field(default=SpecialTypes.NO_RETURN)
+    output: Any = Field(default=SpecialTypes.NEVER_FINISHED)
     compiled: bool = Field(default=False)
 
     @property
@@ -81,7 +81,7 @@ class ExecutionTree(BaseModel):
         Expects that positional args will be the output of a function, so should be array of length 1
         """
         print(f"Output {self.output} ({type(self.output)})")
-        if self.output != SpecialTypes.NO_RETURN:
+        if self.output != SpecialTypes.NEVER_FINISHED:
             raise ValueError("Already handled output for tree suggesting you had parallel execution pathways... The "
                              "initial version of NLX requires you take a single execution pathway through"
                              "your DAG.")
@@ -266,7 +266,7 @@ class ExecutionTree(BaseModel):
 
     def _clear_execution_state(self):
 
-        self.output = SpecialTypes.NO_RETURN
+        self.output = SpecialTypes.NEVER_FINISHED
         self.locked_at_node_name = None
         self.input = None
 
@@ -333,7 +333,7 @@ class ExecutionTree(BaseModel):
     def run_from_node(
             self,
             node_name: str,
-            input_val: Optional[Any] = None,
+            input_val: Any = SpecialTypes.NOT_PROVIDED,
             prev_execution_state: Optional[dict] = None,
             has_approval: bool = False,
             override_output: Optional[Any] = None,
@@ -359,9 +359,9 @@ class ExecutionTree(BaseModel):
             dict: The updated execution state reflecting changes from the continued execution.
         """
 
-        if input_val is None and prev_execution_state is None:
-            raise ValueError("You need to either provide a previous execution state of the tree or provide an "
-                             "input val suitable for start node.")
+        if input_val is None and prev_execution_state is None and override_output is None:
+            raise ValueError("You need to either provide a previous execution state of the tree, an input_val for "
+                             "specified node or an override_output for the specified node.")
 
         if not self.compiled:
             logger.warning(
@@ -401,11 +401,13 @@ class ExecutionTree(BaseModel):
             # First let's clear any residual state in the tree and nodes
             self.input = input_val
             input_data = input_val
-            output_data = SpecialTypes.NO_RETURN
+            output_data = SpecialTypes.NEVER_FINISHED
 
         # If this is not None, we don't rerun the node, we start AFTER
         # the node and pass through the override_output.
         if override_output is not None:
+
+            logger.debug(f"Override output for {start_node.name}: {override_output}")
 
             # Make sure type is compatible with node signature
             if start_node.output_type == NoReturn:
@@ -428,8 +430,8 @@ class ExecutionTree(BaseModel):
 
         # If we have output in state from last time waiting approval
         # NOTE - implicit rule is node cannot yield None as normal, expected output... not loving that.
-        elif output_data is not None:
-            logger.debug(f"output_data is not None: {output_data}")
+        elif output_data is not SpecialTypes.NEVER_FINISHED:
+            logger.debug(f"Node {start_node.name} produced outputs: {output_data}, pass these through")
             start_node.run_next(
                 input_data,
                 output_data,
@@ -440,7 +442,7 @@ class ExecutionTree(BaseModel):
                 }
             )
 
-        # Otherwise, we run the node AGAIN but do not pause execution
+        # Otherwise, the node never completed and we run the node AGAIN but do not pause execution
         else:
             logger.debug(f"No overrides... rerun execution...")
             start_node.run(

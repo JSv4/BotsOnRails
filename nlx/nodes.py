@@ -5,7 +5,7 @@ from typing import Type, Optional, List, Callable, Dict, NoReturn, Any
 from pydantic import BaseModel, UUID4, Field, field_validator, field_serializer
 from pydantic_core.core_schema import FieldValidationInfo
 
-from nlx.types import IT, OT
+from nlx.types import IT, OT, SpecialTypes
 from nlx.utils import is_iterable_of_primitives
 
 logger = logging.getLogger(__name__)
@@ -23,9 +23,9 @@ class BaseNode(BaseModel):
     waiting_for_approval: bool = Field(default=False, init=False)
     description: str = Field(default="NLX natural language program node")
     output_type: Type[OT] = Field(default=Type[str])
-    output_data: Optional[OT | list[OT]] = Field(default=None)
+    output_data: Any = Field(default=SpecialTypes.NEVER_FINISHED)
     runtime_args: Dict[str, Any] = Field(default={}, exclude=True)
-    input_data: Optional[IT] = Field(default=None)
+    input_data: Any = Field(default=SpecialTypes.NOT_PROVIDED)
     input_type: Dict[str, Type] = Field(default={})
     selected_route: Optional[List[str] | str] = Field(default=None)
     route: Optional[Callable[[OT], str]] | Dict[OT, str] | str = Field(default=None, exclude=True)
@@ -41,7 +41,7 @@ class BaseNode(BaseModel):
     def clear_state(self):
         self.executed = False
         self.input_data = None
-        self.output_data = None
+        self.output_data = SpecialTypes.NEVER_FINISHED
         self.waiting_for_approval = False
         self.runtime_args = {}
         self.selected_route = None
@@ -65,7 +65,7 @@ class BaseNode(BaseModel):
         # For example, convert typing.NoReturn to a string representation
         print(f"Validating output type val {v} with info {info}")
         if v == NoReturn:
-            return 'NoReturn'
+            return SpecialTypes.NO_RETURN.value
         return v
 
     def __init__(self, **kwargs):

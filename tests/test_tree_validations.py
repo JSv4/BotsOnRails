@@ -144,3 +144,22 @@ class TestTreeValidations(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             tree.run_from_node("a", override_output=bool)
+
+    def test_required_vals_for_run_from_node(self):
+        tree = ExecutionTree()
+        node = node_for_tree(tree)
+
+        @node(start_node=True, next_nodes="b")
+        def a(**kwargs) -> str:
+            return "Hello!"
+
+        @node(next_nodes="c", wait_for_approval=True)
+        def b(arg1: str, **kwargs) -> str:
+            return arg1
+
+        @node()
+        def c(arg1: str, **kwargs) -> str:
+            return arg1
+
+        with self.assertRaises(ValueError):
+            tree.run_from_node("b")
