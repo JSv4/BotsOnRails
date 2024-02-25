@@ -41,7 +41,6 @@ class ExecutionTree(BaseModel):
             add_node: Adds a new node to the execution tree, optionally setting it as the root node.
             link_nodes: Establishes execution flow between nodes, supporting both sequential and conditional routing.
             get_node: Fetches a node instance by its name, facilitating dynamic interaction with the execution tree.
-            get_node_by_uuid: Retrieves a node instance by its UUID, ensuring accurate node manipulation.
             run: Initiates the workflows execution from the root node, processing through the tree based on defined paths.
             run_from_node: Allows restarting or continuing execution from a specific node, useful for iterative review or modification.
             generate_graph: Constructs a graph representation of the execution tree, aiding in visualization and analysis.
@@ -59,7 +58,7 @@ class ExecutionTree(BaseModel):
     nodes: Dict[str, BaseNode] = Field(default={})
     node_ids: Dict[str, UUID4] = Field(default={})
     node_names: Dict[UUID4, str] = Field(default={})
-    output: Any = Field(default=SpecialTypes.NO_RETURN)
+    output: Any = Field(default=SpecialTypes.NEVER_FINISHED)
     compiled: bool = Field(default=False)
 
     @property
@@ -74,18 +73,15 @@ class ExecutionTree(BaseModel):
             ValueError: If the root node ID does not correspond to a BaseNode instance.
         """
         if self.root_node_id is not None:
-            matching_node = self.nodes[self.node_names[self.root_node_id]]
-            if isinstance(matching_node, BaseNode) or issubclass(matching_node.__class__, BaseNode):
-                return matching_node
-            else:
-                raise ValueError(f"Root note has wrong type {type(matching_node)}")
+            return self.nodes[self.node_names[self.root_node_id]]
         return None
 
     def handle_output(self, *args):
         """
         Expects that positional args will be the output of a function, so should be array of length 1
         """
-        if self.output != 'NoOutput':
+        print(f"Output {self.output} ({type(self.output)})")
+        if self.output != SpecialTypes.NEVER_FINISHED:
             raise ValueError("Already handled output for tree suggesting you had parallel execution pathways... The "
                              "initial version of NLX requires you take a single execution pathway through"
                              "your DAG.")
@@ -109,6 +105,9 @@ class ExecutionTree(BaseModel):
         """
         logger.debug(f"Add node `{name}`: {node}")
 
+        if not isinstance(node, BaseNode) and not issubclass(node.__class__, BaseNode):
+            raise ValueError(f"Node has wrong type {type(node)}... cannot add")
+
         if self.root_node_id is not None and root:
             raise ValueError(f"Root node {self.root_node_id} is already registered!")
 
@@ -127,7 +126,7 @@ class ExecutionTree(BaseModel):
         if root:
             self.root_node_id = node.id
 
-        node.get_node = lambda x: self.nodes.get(x, None)
+        node.get_node = lambda x: self.get_node(x)
         node.handle_output = self.handle_output
 
         if node.route is not None:
@@ -192,6 +191,8 @@ class ExecutionTree(BaseModel):
             raise ValueError("You need to register a root node. Use the start_node=True argument on root node "
                              "decorator")
 
+        self._clear_execution_state()
+
         for node_name, node in self.nodes.items():
 
             if not node.route:
@@ -251,7 +252,7 @@ class ExecutionTree(BaseModel):
 
         self.compiled = True
 
-    def get_node(self, name: str) -> BaseNode:
+    def get_node(self, name: str) -> Optional[BaseNode]:
         """
         Fetches a node instance by its name from the execution tree.
 
@@ -261,24 +262,11 @@ class ExecutionTree(BaseModel):
         Returns:
             BaseNode: The node instance corresponding to the provided name.
         """
-        return self.nodes[name]
-
-    def get_node_by_uuid(self, id: str) -> BaseNode:
-        """
-        Retrieves a node instance by its UUID from the execution tree.
-
-        Parameters:
-            id (str): The UUID of the node to retrieve.
-
-        Returns:
-            BaseNode: The node instance corresponding to the provided UUID.
-        """
-        name = self.node_names[id]
-        return self.nodes[name]
+        return self.nodes.get(name, None)
 
     def _clear_execution_state(self):
 
-        self.output = 'NoOutput'
+        self.output = SpecialTypes.NEVER_FINISHED
         self.locked_at_node_name = None
         self.input = None
 
@@ -316,6 +304,7 @@ class ExecutionTree(BaseModel):
         if not isinstance(runtime_args, dict):
             runtime_args = {}
         runtime_args['input'] = args
+        runtime_args['auto_approve'] = auto_approve
 
         if self.root:
             print(f"Root node exists... proceed to run with {args}")
@@ -345,10 +334,10 @@ class ExecutionTree(BaseModel):
     def run_from_node(
             self,
             node_name: str,
-            input_val: Optional[Any] = None,
+            input_val: Any = SpecialTypes.NOT_PROVIDED,
             prev_execution_state: Optional[dict] = None,
             has_approval: bool = False,
-            override_output: Optional[Any] = None,
+            override_output: Optional[Any] = SpecialTypes.NO_RETURN,
             runtime_args: Optional[Dict] = None
     ) -> Any:
         """
@@ -371,15 +360,18 @@ class ExecutionTree(BaseModel):
             dict: The updated execution state reflecting changes from the continued execution.
         """
 
-        if input_val is None and prev_execution_state is None:
-            raise ValueError("You need to either provide a previous execution state of the tree or provide an "
-                             "input val suitable for start node.")
+        if input_val is SpecialTypes.NOT_PROVIDED and prev_execution_state is None and override_output is SpecialTypes.NO_RETURN:
+            raise ValueError("You need to either provide a previous execution state of the tree, an input_val for "
+                             "specified node or an override_output for the specified node.")
 
         if not self.compiled:
             logger.warning(
                 f"You must call .compile() after adding the last node before you can use the Execution Tree. "
                 f"Calling it for you!")
             self.compile()
+
+        if runtime_args is None:
+            runtime_args = {}
 
         # If you want to replay the entire tree for some reason, just grab initial inputs from previous run
         logger.debug(f"Tree {self.id} - run_from_node {node_name}")
@@ -413,11 +405,13 @@ class ExecutionTree(BaseModel):
             # First let's clear any residual state in the tree and nodes
             self.input = input_val
             input_data = input_val
-            output_data = SpecialTypes.NO_RETURN
+            output_data = SpecialTypes.NEVER_FINISHED
 
         # If this is not None, we don't rerun the node, we start AFTER
         # the node and pass through the override_output.
-        if override_output is not None:
+        if override_output is not SpecialTypes.NO_RETURN:
+
+            logger.debug(f"Override output for {start_node.name}: {override_output}")
 
             # Make sure type is compatible with node signature
             if start_node.output_type == NoReturn:
@@ -434,14 +428,14 @@ class ExecutionTree(BaseModel):
                 runtime_args={
                     "input_chain": input_chain,
                     "input": self.input,
-                    **(runtime_args if runtime_args is not None else {})
+                    **runtime_args
                 }
             )
 
         # If we have output in state from last time waiting approval
         # NOTE - implicit rule is node cannot yield None as normal, expected output... not loving that.
-        elif output_data is not None:
-            logger.debug(f"output_data is not None: {output_data}")
+        elif output_data is not SpecialTypes.NEVER_FINISHED:
+            logger.debug(f"Node {start_node.name} produced outputs: {output_data}, pass these through")
             start_node.run_next(
                 input_data,
                 output_data,
@@ -452,18 +446,32 @@ class ExecutionTree(BaseModel):
                 }
             )
 
-        # Otherwise, we run the node AGAIN but do not pause execution
+        # TODO - no test case is picking this up
+        # Otherwise, the node never completed and we run the node AGAIN but do not pause execution
         else:
-            logger.debug(f"No overrides... rerun execution...")
-            start_node.run(
-                input_data,
-                has_approval=has_approval,
-                runtime_args={
-                    "input_chain": input_chain,
-                    "input": self.input,
-                    **runtime_args
-                }
-            )
+            print(f"No overrides... rerun execution with input_data {input_data} / input chain {input_chain}")
+            print(f"Start node {start_node}")
+            print(f"Runtime_args: {runtime_args}")
+
+            if input_data == SpecialTypes.NOT_PROVIDED:
+                start_node.run(
+                    has_approval=has_approval,
+                    runtime_args={
+                        "input_chain": input_chain,
+                        "input": self.input,
+                        **(runtime_args if isinstance(runtime_args, dict) else {})
+                    }
+                )
+            else:
+                start_node.run(
+                    input_data,
+                    has_approval=has_approval,
+                    runtime_args={
+                        "input_chain": input_chain,
+                        "input": self.input,
+                        **runtime_args
+                    }
+                )
 
         # Figure out where we have a stopped node and get name
         # ATM we do NOT support having multiple breakpoints in parallel branches.
@@ -585,6 +593,10 @@ class ExecutionTree(BaseModel):
                          image file. Otherwise, displays the visualization. Defaults to None.
         """
 
+        # TODO - tree.py:604: DeprecationWarning: nx.nx_pydot.graphviz_layout depends on
+        #  the pydot package, which has known issues and is not actively maintained. Consider using
+        #  nx.nx_agraph.graphviz_layout instead.
+
         if not self.compiled:
             logger.warning(
                 f"You must call .compile() after adding the last node before you can visualize the Execution "
@@ -598,7 +610,6 @@ class ExecutionTree(BaseModel):
         my_dpi = 96
         plt.figure(3, figsize=(1024 / my_dpi, 1024 / my_dpi))
         nx.draw(G, pos, with_labels=True, node_color='skyblue', node_size=700, edge_color='k')
-        plt.show(figsize=[46.82 * .5 ** (.5 * 6), 33.11 * .5 ** (.5 * 6)], dpi=141)
 
         if save_to_disk is not None:
             plt.savefig(save_to_disk)
@@ -606,47 +617,7 @@ class ExecutionTree(BaseModel):
         else:
             plt.show()
 
-    @property
-    def results_flow(self) -> str:
-        """
-        Generates a textual diagram of executed nodes in a tree-based workflows,
-        including their names, input, and output data.
-
-        """
-
-        if not self.compiled:
-            logger.warning(
-                f"You must call .compile() after adding the last node before you can visualize the Execution "
-                f"Tree. Calling it for you!")
-            self.compile()
-
-        state = self.model_dump()
-        executed_nodes = {name: node for name, node in state["nodes"].items() if node["executed"]}
-
-        diagram = "Execution Diagram:\n-------------------\n"
-        for name, node in executed_nodes.items():
-            # Node name and execution status
-            diagram += f'Node: "{name}\n"'
-            # Input data
-            input_data = f'Input: {node["input_data"] if node["input_data"] != "" else "None"}'
-            # Output data
-            output_data = f'Output: {node["output_data"]}'
-            diagram += f'\n{input_data}\t-->\t{output_data}\n'
-
-            # Show the selected route if it exists
-            selected_route = node.get("selected_route")
-            if selected_route:
-                if isinstance(selected_route, list):
-                    for route in selected_route:
-                        selected_route_name = state["node_names"].get(route, None)
-                        if selected_route_name is not None:
-                            diagram += f"\t\tRoute to --> {selected_route_name}\n"
-                else:
-                    selected_route_name = state["node_names"].get(selected_route, None)
-                    diagram += f"\t\tRoute to --> {selected_route_name}\n"
-        return diagram
-
-    def generate_mermaid_diagram(self) -> str:
+    def generate_mermaid_diagram(self) -> Optional[str]:
         """
         Generates a Mermaid class diagram of executed nodes in a tree-based workflows,
         including their names, input, and output data as class properties.
@@ -664,35 +635,35 @@ class ExecutionTree(BaseModel):
         state = self.model_dump()
         executed_nodes = {name: node for name, node in state["nodes"].items() if node["executed"]}
 
+        if len(executed_nodes.items()) == 0:
+            return None
+
         # Mermaid diagram initialization
         diagram = "classDiagram\n"
+
+        relationships = []
 
         # Generate classes for each node
         for name, node in executed_nodes.items():
             # Define the class with name and properties
-            class_name = name.replace("_", "").capitalize()  # Simplify node name for class name
+            class_name = name.replace("_", "")  # Simplify node name for class name
             input_data = node["input_data"] if node["input_data"] != "" else "None"
             output_data = node["output_data"]
             diagram += f'    class {class_name} {{\n'
             diagram += f'        +String name = "{name}"\n'
             diagram += f'        +InputData input = {input_data}\n'
             diagram += f'        +OutputData output = {output_data}\n'
+            if node['waiting_for_approval']:
+                diagram +='        ----- !! HALT !! -----'
             diagram += '    }\n'
 
-        # Generate relationships
-        for name, node in executed_nodes.items():
-            class_name = name.replace("_", "").capitalize()
-            selected_route = node.get("selected_route")
+            selected_route = node['selected_route']
+            print(f"Selected route for {name}: {selected_route}")
             if selected_route:
-                if isinstance(selected_route, list):
-                    for route in selected_route:
-                        selected_route_name = state["node_names"].get(route, "").replace("_", "").capitalize()
-                        if selected_route_name:
-                            diagram += f'    {class_name} --|> {selected_route_name} : routes\n'
-                else:
-                    selected_route_name = state["node_names"].get(selected_route, "").replace("_", "").capitalize()
-                    if selected_route_name:
-                        diagram += f'    {class_name} --|> {selected_route_name} : route\n'
+                selected_route = selected_route.replace("_", "")
+                relationships.append(f'    {name} --|> {selected_route} : routed')
+
+        diagram += "\n".join(relationships)
 
         return diagram
 
