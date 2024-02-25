@@ -36,7 +36,7 @@ class BaseNode(BaseModel):
                                                           'Tuple, do we unpack and pass the positional args '
                                                           'separately or pass iterable output as a single positional '
                                                           'arg')
-    handle_output: Optional[Callable[[Any], NoReturn]] = Field(default=None)
+    handle_output: Optional[Callable[[Any], NoReturn]] = Field(default=None, exclude=True)
 
     def clear_state(self):
         self.executed = False

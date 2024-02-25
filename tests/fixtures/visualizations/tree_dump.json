@@ -1,0 +1,47 @@
+{
+    "input": null,
+    "locked_at_node_name": null,
+    "nodes": {
+        "a": {
+            "name": "a",
+            "executed": false,
+            "wait_for_approval": false,
+            "waiting_for_approval": false,
+            "description": "Function call in DAG",
+            "output_type": "<class 'str'>",
+            "output_data": "__NEVER_FINISHED--",
+            "input_data": "__NOT_PROVIDED--",
+            "input_type": "{}",
+            "selected_route": null,
+            "unpack_output": true
+        },
+        "b": {
+            "name": "b",
+            "executed": false,
+            "wait_for_approval": true,
+            "waiting_for_approval": false,
+            "description": "Function call in DAG",
+            "output_type": "<class 'str'>",
+            "output_data": "__NEVER_FINISHED--",
+            "input_data": "__NOT_PROVIDED--",
+            "input_type": "{'arg1': <class 'str'>}",
+            "selected_route": null,
+            "unpack_output": true
+        },
+        "c": {
+            "name": "c",
+            "executed": false,
+            "wait_for_approval": false,
+            "waiting_for_approval": false,
+            "description": "Function call in DAG",
+            "output_type": "<class 'str'>",
+            "output_data": "__NEVER_FINISHED--",
+            "input_data": "__NOT_PROVIDED--",
+            "input_type": "{'arg1': <class 'str'>}",
+            "selected_route": null,
+            "unpack_output": true
+        }
+    },
+    "output": "__NEVER_FINISHED--",
+    "compiled": false
+}
