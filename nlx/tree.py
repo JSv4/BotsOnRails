@@ -723,6 +723,6 @@ class ExecutionTree(BaseModel):
             exclude={
                 'input_data': hide_intermediate_results,
                 'output_data': hide_intermediate_results,
-                'runtime_args': hide_intermediate_results
+                'runtime_args': hide_intermediate_results,
             }
         )

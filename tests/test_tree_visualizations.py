@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -162,3 +163,23 @@ class TestTreeValidations(unittest.TestCase):
                 open(target_file_path, "rb").read(),
                 open((visualizations_dir / graphviz_filename).__str__(), "rb").read()
             )
+
+    def test_tree_dump(self):
+
+
+        output_with_ids = self.tree.dump_json()
+        output_dict = json.loads(output_with_ids)
+        output_dict.pop("id")
+        output_dict.pop("root_node_id")
+        output_dict.pop("node_names")
+        output_dict.pop("node_ids")
+        for name, obj in output_dict['nodes'].items():
+            obj.pop("id")
+
+        generated_output = json.dumps(output_dict, indent=4)
+        expected_output = (visualizations_dir / "tree_dump.json").read_text()
+
+        self.assertEqual(
+            expected_output,
+            generated_output
+        )
