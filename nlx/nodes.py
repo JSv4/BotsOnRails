@@ -23,7 +23,7 @@ class BaseNode(BaseModel):
     waiting_for_approval: bool = Field(default=False, init=False)
     description: str = Field(default="NLX natural language program node")
     output_type: Type[OT] = Field(default=Type[str])
-    output_data: Any = Field(default=SpecialTypes.NEVER_FINISHED)
+    output_data: Any = Field(default=SpecialTypes.NEVER_RAN)
     runtime_args: Dict[str, Any] = Field(default={}, exclude=True)
     input_data: Any = Field(default=SpecialTypes.NOT_PROVIDED)
     input_type: Dict[str, Type] = Field(default={})
@@ -41,7 +41,7 @@ class BaseNode(BaseModel):
     def clear_state(self):
         self.executed = False
         self.input_data = None
-        self.output_data = SpecialTypes.NEVER_FINISHED
+        self.output_data = SpecialTypes.NEVER_RAN
         self.waiting_for_approval = False
         self.runtime_args = {}
         self.selected_route = None

@@ -233,17 +233,22 @@ def exit(*args, **kwargs) -> Literal["EXIT"]:
 
 
 # tree.visualize_via_graphviz()
-run_state = SpecialTypes.NEVER_FINISHED
+run_state = SpecialTypes.NEVER_RAN
 
+# Execution loop for agent
 while True:
-    if run_state is SpecialTypes.NEVER_FINISHED:
+    print(f"Current tree state is {tree.output}")
+    print(f"Locked at node: {tree.locked_at_node_name}")
+    if run_state == SpecialTypes.NEVER_RAN:
+        print("Starting tree with NEVER_RAN")
         user_prompt = input("Welcome to the document agent. What do you want to do?:\n1. Add a document to the "
                             "store\n2. Remove a document from the store\n3. Analyze a Document in the store\n4. "
                             "Exit\n\nYour Choice? ")
         run_value = tree.run(user_prompt)
         run_state = tree.output
-        print(f"Run state after starting from NEVER_FINISHED is {run_state}")
+        print(f"Run state after starting from NEVER_RAN is {run_state}")
     elif run_state == SpecialTypes.EXECUTION_HALTED:
+        print("Starting loop with EXECUTION HALTED")
         user_choice = input("Please confirm you want to proceed?")
         should_proceed = marvin.cast(user_choice, target=bool, instructions="Does the user appear to want to "
                                                                             "continue - True for yes or False for"
@@ -258,10 +263,11 @@ while True:
             print("Ok, we'll stop")
         run_state = tree.output
     else:
+        print(f"Starting with run state {run_state}")
         # If output indicates user wants to exit... stop the loop
         if run_state == "EXIT":
             print("Exiting!")
             break
-        # Otherwise, reset and continue
+        # Otherwise, reset and start again
         else:
-            run_state = SpecialTypes.NEVER_FINISHED
+            run_state = SpecialTypes.NEVER_RAN
