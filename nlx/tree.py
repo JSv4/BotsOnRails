@@ -58,7 +58,7 @@ class ExecutionTree(BaseModel):
     nodes: Dict[str, BaseNode] = Field(default={})
     node_ids: Dict[str, UUID4] = Field(default={})
     node_names: Dict[UUID4, str] = Field(default={})
-    output: Any = Field(default=SpecialTypes.NEVER_FINISHED)
+    output: Any = Field(default=SpecialTypes.NEVER_RAN)
     compiled: bool = Field(default=False)
 
     @property
@@ -81,7 +81,7 @@ class ExecutionTree(BaseModel):
         Expects that positional args will be the output of a function, so should be array of length 1
         """
         print(f"Output {self.output} ({type(self.output)})")
-        if self.output != SpecialTypes.NEVER_FINISHED:
+        if self.output not in [SpecialTypes.NEVER_FINISHED, SpecialTypes.NEVER_RAN]:
             raise ValueError("Already handled output for tree suggesting you had parallel execution pathways... The "
                              "initial version of NLX requires you take a single execution pathway through"
                              "your DAG.")
@@ -266,7 +266,7 @@ class ExecutionTree(BaseModel):
 
     def _clear_execution_state(self):
 
-        self.output = SpecialTypes.NEVER_FINISHED
+        self.output = SpecialTypes.NEVER_RAN
         self.locked_at_node_name = None
         self.input = None
 
