@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -151,3 +152,13 @@ class TestTreeValidations(unittest.TestCase):
             full_execution_diagram
         )
 
+    def test_graphviz_visuals(self):
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            graphviz_filename = "graphviz_visual.dot"
+            target_file_path = (Path(tmpdirname) / graphviz_filename).__str__()
+            self.tree.visualize_via_graphviz(target_file_path)
+            self.assertEqual(
+                open(target_file_path, "rb").read(),
+                open((visualizations_dir / graphviz_filename).__str__(), "rb").read()
+            )

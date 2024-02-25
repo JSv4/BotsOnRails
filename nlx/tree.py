@@ -712,9 +712,8 @@ class ExecutionTree(BaseModel):
                     raise ValueError(f"Unsupported route type for node {node_name}")
 
         # Additional styling and layout options can be specified here
-        if filename is None:
+        if filename is not None:
             dot.render(filename, view=False)  # Saves and opens the visualization
-            return dot
         else:
             dot.view()
 
