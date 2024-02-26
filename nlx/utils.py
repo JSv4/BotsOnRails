@@ -1,9 +1,10 @@
-import collections.abc
 import inspect
 import json
-import os
+import logging
 import uuid
 from typing import Any, Callable, get_type_hints, NoReturn, List, get_origin, Union, get_args, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class UUIDEncoder(json.JSONEncoder):
@@ -123,9 +124,9 @@ def is_optional_annotation(annotation) -> bool:
     Returns:
         True if the annotation is Optional, False otherwise.
     """
-    print(f"Is annotation {annotation} (type {type(annotation)}) optional?")
-    print(f"Origin is {get_origin(annotation)}")
-    print(f"Args: {get_args(annotation)}")
+    logger.debug(f"Is annotation {annotation} (type {type(annotation)}) optional?")
+    logger.debug(f"Origin is {get_origin(annotation)}")
+    logger.debug(f"Args: {get_args(annotation)}")
     return get_origin(annotation) is Union and type(None) in get_args(annotation)
 
 
@@ -169,25 +170,9 @@ def match_types(
     input_params = get_type_hints(next_function)
     input_signature_params = inspect.signature(next_function).parameters
     input_params.pop('return')  # We don't want return type on the input annotation hint
-    print("Match types")
-    print(input_params)
-    print(input_signature_params)
-    if 'args' in input_signature_params:
-        print(input_signature_params['args'])
-    print(previous_func_output)
-    print(get_origin(previous_func_output))
-    print(isinstance(get_origin(previous_func_output), (Callable, collections.abc.Callable)))
-    print(isinstance(get_origin(previous_func_output), (tuple, Tuple)))
-    print(get_origin(previous_func_output) == tuple)
     annot = get_origin(previous_func_output)
-    print("is_tuple_annotation: " + str(is_tuple_annotation(annot)))
-    print("is_list_annotation: " + str(is_list_annotation(annot)))
-    print("is_str_or_bytes_str: " + str(is_not_str_or_bytes_str(annot)))
-    print("is_complex_iterable_annot: " + str(unpackable_annotation(annot)))
 
     if not unpackable_annotation(get_origin(previous_func_output)):
-        print(f"input_params: ({type(input_params)}) {input_params}")
-        print(f"input_params.items: {input_params.items()}")
         if previous_func_output == NoReturn:
             if input_params == {}:
                 pass  # no actual inputs
@@ -220,9 +205,9 @@ def match_types(
                              f"multiple positional args - {input_params.values()}. Did you mean to set "
                              f"unpack_output=True?")
     else:
-        print(f"Output of preceding function is a complex type that can iterate: {previous_func_output}")
+        logger.debug(f"Output of preceding function is a complex type that can iterate: {previous_func_output}")
         next_func_input_types = list(input_params.values())
-        print(f"Function {next_function.__name__} expects input of {next_func_input_types}")
+        logger.debug(f"Function {next_function.__name__} expects input of {next_func_input_types}")
         prev_f_unpacked_annot = unpack_annotation(previous_func_output)
 
         # We have a couple different cases to handle here
@@ -243,13 +228,13 @@ def match_types(
         # 3) We have an output iterable with fewer constituent members than input, in which case this CAN be valid IF
         # we have a) more than enough values for non-optional values and b) any remaining values have same type as
         # what's expected for corresponding optional values
-        print(F"b_arg_types: {next_func_input_types}")
+        logger.debug(F"b_arg_types: {next_func_input_types}")
         if len(prev_f_unpacked_annot) < len(next_func_input_types):
             raise ValueError(
                 f"Function {next_function.__name__} has at least {len(next_func_input_types)} required positional "
                 f"args, yet output value of preceding function only has {len(prev_f_unpacked_annot)} members")
 
-        print(f"Optional inputs for {next_function.__name__}: {prev_f_unpacked_annot}")
+        logger.debug(f"Optional inputs for {next_function.__name__}: {prev_f_unpacked_annot}")
         for index, opt_inp in enumerate(prev_f_unpacked_annot):
             if is_optional_annotation(next_func_input_types[index]):
                 if next_func_input_types[index] == opt_inp:

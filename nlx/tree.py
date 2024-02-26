@@ -80,7 +80,7 @@ class ExecutionTree(BaseModel):
         """
         Expects that positional args will be the output of a function, so should be array of length 1
         """
-        print(f"Output {self.output} ({type(self.output)})")
+        logger.debug(f"Output {self.output} ({type(self.output)})")
         if self.output not in [SpecialTypes.NEVER_FINISHED, SpecialTypes.NEVER_RAN, SpecialTypes.EXECUTION_HALTED]:
             raise ValueError("Already handled output for tree suggesting you had parallel execution pathways... The "
                              "initial version of NLX requires you take a single execution pathway through"
@@ -289,7 +289,7 @@ class ExecutionTree(BaseModel):
             dict: A dictionary capturing the execution state and outputs of the workflows.
 
         """
-        print(f"run() - with args {args}")
+        logger.debug(f"run() - with args {args}")
 
         if not self.compiled:
             logger.warning(
@@ -305,7 +305,7 @@ class ExecutionTree(BaseModel):
         runtime_args['auto_approve'] = auto_approve
 
         if self.root:
-            print(f"Root node exists... proceed to run with {args}")
+            logger.debug(f"Root node exists... proceed to run with {args}")
 
             # First let's clear any residual state
             self._clear_execution_state()
@@ -331,6 +331,19 @@ class ExecutionTree(BaseModel):
                 self.output = SpecialTypes.NEVER_FINISHED
 
             return self.output
+
+    def _rehydrate_output(self, output: Any, node: BaseNode) -> Any:
+        """
+        If you try to run_from_node and pass in a prev_execution_state that was serialized, you will only be able to get
+        primitives, dicts, tuples and list. Objects and other types of variables will not be able to be serialized and
+        deserialized without custom tooling. This function is a place you can hook into the execution order and convert
+        the output_data from your selected start node back into the type it was supposed to be. For now, we only support
+        Pydantic BaseModel and child classes, but this could be extended or even made pluggable to support other things.
+        """
+        if (issubclass(node.output_type, BaseModel) or node.output_type is BaseModel) and isinstance(output, dict):
+            return node.output_type(**output)
+        else:
+            return output
 
     def run_from_node(
             self,
@@ -403,12 +416,14 @@ class ExecutionTree(BaseModel):
             start_node_output_data = start_after_node['output_data']
             print(f"Target type for output is: {start_node.output_type}")
 
-            # TODO - this is a hack that could become something modular - if the output is a pydantic model, recreate
-            if issubclass(start_node.output_type, BaseModel) or start_node.output_type is BaseModel:
-                start_node_output_data = start_node.output_type(**start_node_output_data)
+            # This is a hook for something that could become more modular - if the output type is a pydantic model,
+            # convert the now dict outputs to pydantic model. Could do other similar things in
+            # self._rehydrate_output(...)
+            start_node_output_data = self._rehydrate_output(start_node_output_data, start_node)
+            # if issubclass(start_node.output_type, BaseModel) or start_node.output_type is BaseModel:
+            #     start_node_output_data = start_node.output_type(**start_node_output_data)
 
-            print(f"running next with output data {start_node_output_data}")
-
+            logger.debug(f"running next with output data {start_node_output_data}")
             logger.debug(f"run_from_node() - output_data: {start_node_output_data}")
             logger.debug(f"run_from_node() - input_data: {start_node_input_data}")
 
@@ -459,10 +474,6 @@ class ExecutionTree(BaseModel):
         # TODO - no test case is picking this up
         # Otherwise, the node never completed and we run the node AGAIN but do not pause execution
         else:
-            print(f"No overrides... rerun execution with input_data {start_node_input_data} / input chain {input_chain}")
-            print(f"Start node {start_node}")
-            print(f"Runtime_args: {runtime_args}")
-
             if start_node_input_data == SpecialTypes.NOT_PROVIDED:
                 start_node.run(
                     has_approval=has_approval,
@@ -510,7 +521,6 @@ class ExecutionTree(BaseModel):
         """
         # undirected_cycles = nx.cycle_basis(self.generate_nx_digraph(ignore_compile_flag=True).to_undirected())
         simple_cycles = list(nx.simple_cycles(self.generate_nx_digraph(ignore_compile_flag=True)))
-        print(f"Cycles: {simple_cycles}")
         return len(simple_cycles) > 0
 
     def generate_nx_digraph(self, ignore_compile_flag: bool = False) -> nx.DiGraph:

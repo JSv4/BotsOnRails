@@ -64,7 +64,6 @@ def node_for_tree(execution_tree):
             unpack_output: bool = True
     ):
         def decorator(func):
-            print(f"Decorate func {func}")
             nonlocal name
             if name is None:
                 name = func.__name__
@@ -77,9 +76,7 @@ def node_for_tree(execution_tree):
                 if 'return' in type_hints:
                     output_type = type_hints.pop('return', None)
             if len(type_hints) > 0:
-                print(f"Remaining type hints: {type_hints}")
                 input_type = type_hints
-                print(f"input_type is then {input_type}")
 
             # Create the node instance
             node_instance = BaseNode(

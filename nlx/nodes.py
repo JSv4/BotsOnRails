@@ -63,7 +63,7 @@ class BaseNode(BaseModel):
     def validate_output_type(cls, v, info: FieldValidationInfo) -> str:
         # Implement custom logic to handle special types if necessary
         # For example, convert typing.NoReturn to a string representation
-        print(f"Validating output type val {v} with info {info}")
+        logger.debug(f"Validating output type val {v} with info {info}")
         if v == NoReturn:
             return SpecialTypes.NO_RETURN.value
         return v
@@ -79,7 +79,7 @@ class BaseNode(BaseModel):
 
         """
         """
-        print(f"FunctionNode.{self.name} - _Execute with input: {args}")
+        logger.debug(f"FunctionNode.{self.name} - _Execute with input: {args}")
         self.runtime_args = runtime_args
         output_data = self.execute_function(*args, runtime_args=runtime_args)
         logger.debug(f"FunctionNode.{self.name} - _execute output: {output_data}")
@@ -88,7 +88,7 @@ class BaseNode(BaseModel):
     def pre_process_input(self, *args):
         logger.debug(f"{self.name} pre_process_input(...) - for node {self.name} with input {args}")
         self.input_data = args
-        print(f"{self.name} pre_process_input(...) - stored {self.input_data}")
+        logger.debug(f"{self.name} pre_process_input(...) - stored {self.input_data}")
         return args
 
     def post_process_output(self, node_output: OT):
@@ -104,9 +104,9 @@ class BaseNode(BaseModel):
 
         if self.get_node is not None:
             if isinstance(self.route, Callable):
-                print(f"Node {self.name} has functional routing... proceed")
+                logger.debug(f"Node {self.name} has functional routing... proceed")
                 self.selected_route = self.route(original_output)
-                print(f"Node {self.name} - selected route is {self.selected_route}")
+                logger.debug(f"Node {self.name} - selected route is {self.selected_route}")
                 if self.unpack_output:
                     if is_iterable_of_primitives(original_output):
                         self.get_node(
@@ -136,9 +136,9 @@ class BaseNode(BaseModel):
             # next id, fetch next id
             elif isinstance(self.route, dict):
 
-                print(f"Node {self.name} - has static routing... proceed")
+                logger.debug(f"Node {self.name} - has static routing... proceed")
                 self.selected_route = self.route.get(original_output, None)
-                print(f"Node {self.name} - selected route is {self.selected_route}")
+                logger.debug(f"Node {self.name} - selected route is {self.selected_route}")
 
                 # We want ability to select none of the provided routes, in which case this is just a conditional link
                 if self.selected_route is None:
@@ -171,13 +171,13 @@ class BaseNode(BaseModel):
                     )
             # Finally, if it's a single uuid, run it.
             elif isinstance(self.route, str):
-                print(f"Node {self.name} - has linked list routing... proceed")
-                print(f"\t--> to function `{self.route}` with inputs {original_output}")
+                logger.debug(f"Node {self.name} - has linked list routing... proceed")
+                logger.debug(f"\t--> to function `{self.route}` with inputs {original_output}")
                 self.selected_route = self.route
 
                 if self.unpack_output:
                     if is_iterable_of_primitives(original_output):
-                        print(f"Original output {original_output} is iterable of primitives")
+                        logger.debug(f"Original output {original_output} is iterable of primitives")
                         self.get_node(
                             self.route
                         ).run(
@@ -203,9 +203,9 @@ class BaseNode(BaseModel):
                     )
 
             elif self.route is None:
-                print(f"Execution stopped at node {self.name}")
+                logger.debug(f"Execution stopped at node {self.name}")
                 if self.handle_output:
-                    print(f"Output handler registered!")
+                    logger.debug(f"Output handler registered!")
                     self.handle_output(original_output)
             else:
                 raise ValueError(f"Unexpected value for `route`: {type(self.route)}")
@@ -216,8 +216,8 @@ class BaseNode(BaseModel):
 
     def run(self, *args, has_approval: bool = False, runtime_args: Optional[Dict] = None, **kwargs):
 
-        print(f"Node {self.name} - run with approval {has_approval} and runtime_args: {runtime_args}")
-        print(f"\tReceived input {args}")
+        logger.debug(f"Node {self.name} - run with approval {has_approval} and runtime_args: {runtime_args}")
+        logger.debug(f"\tReceived input {args}")
         if runtime_args:
             input_chain = runtime_args.get("input_chain", None)
             if isinstance(input_chain, dict):
@@ -235,7 +235,7 @@ class BaseNode(BaseModel):
         self.runtime_args = runtime_args
 
         processed_input = self.pre_process_input(*args)
-        print(f"Processed input: {processed_input}")
+        logger.debug(f"Processed input: {processed_input}")
         output_data = self._execute(
             *processed_input,
             runtime_args=runtime_args)
@@ -245,7 +245,7 @@ class BaseNode(BaseModel):
             logger.debug(f"Node {self.name} is waiting for approval")
             self.waiting_for_approval = True
         else:
-            print(f"Node {self.name} is proceeding to router with results {processed_output}")
+            logger.debug(f"Node {self.name} is proceeding to router with results {processed_output}")
             self.route_output(processed_output, runtime_args=runtime_args)
 
     def run_next(self, input_data: IT, output_data: OT, runtime_args: Optional[Dict] = None):
@@ -257,8 +257,8 @@ class BaseNode(BaseModel):
         :param runtime_args:
         :return:
         """
-        print(f"Node {self.name} - run_next with input `{input_data}` and output `{output_data}`")
-        print(f"Runtime args: {runtime_args}")
+        logger.debug(f"Node {self.name} - run_next with input `{input_data}` and output `{output_data}`")
+        logger.debug(f"Runtime args: {runtime_args}")
         self.input_data = input_data
         self.output_data = output_data
         self.executed = True

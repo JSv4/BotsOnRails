@@ -7,9 +7,10 @@ import jellyfish
 import marvin
 import requests
 from pydantic import BaseModel, Field
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from nlx import ExecutionTree, node_for_tree
 from nlx.types import SpecialTypes
@@ -41,8 +42,11 @@ def show_document_report(name: str, date: str, parties: list[str]) -> NoReturn:
         name_table.add_row(name)
 
     # Create the main panel
-    card_content = f"[b]{name}[/b]\n[b]{date}[/b]\n{name_table}"
-    panel = Panel(card_content, style="bold magenta on black", title="[sparkle]Card[/sparkle]", subtitle="Details")
+    # Combine the name, date, and table into a single Group
+    card_content = Group(Text(f"[b]{name}[/b]", style="bold"),
+                         Text(f"[b]{date}[/b]", style="bold"),
+                         name_table)
+    panel = Panel(card_content, style="bold magenta on black", title="[sparkle]Document Analysis[/sparkle]", subtitle="Details")
 
     # Print the card
     console.print(panel)
