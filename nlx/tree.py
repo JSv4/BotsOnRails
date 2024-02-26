@@ -412,9 +412,9 @@ class ExecutionTree(BaseModel):
                     input_chain[node_name] = state['input_data']
 
             start_node_input_data = start_after_node['input_data']
-            print(f"running next start node input data: {start_node_input_data}")
+            logger.debug(f"running next start node input data: {start_node_input_data}")
             start_node_output_data = start_after_node['output_data']
-            print(f"Target type for output is: {start_node.output_type}")
+            logger.debug(f"Target type for output is: {start_node.output_type}")
 
             # This is a hook for something that could become more modular - if the output type is a pydantic model,
             # convert the now dict outputs to pydantic model. Could do other similar things in
@@ -569,7 +569,7 @@ class ExecutionTree(BaseModel):
                     logger.warning(
                         f"Cannot show outputs of router function for {node.name} as func_router_possible_node_annot is Null")
             elif node.route is None:
-                logger.info(f"Node {node.name} is terminal. No next node.")
+                logger.debug(f"Node {node.name} is terminal. No next node.")
             else:
                 logger.error(f"Node {node.name} unrecognized route type {type(node.route)}")
         return G

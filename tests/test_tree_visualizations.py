@@ -166,7 +166,6 @@ class TestTreeValidations(unittest.TestCase):
 
     def test_tree_dump(self):
 
-
         output_with_ids = self.tree.dump_json()
         output_dict = json.loads(output_with_ids)
         output_dict.pop("id")
