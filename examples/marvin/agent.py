@@ -24,6 +24,7 @@ credentials = json.loads(credential_file.read_text())
 # Authorize Marvin
 marvin.settings.openai.api_key = credentials["OPENAI_API_KEY"]
 
+
 def show_document_report(name: str, date: str, parties: list[str]) -> NoReturn:
     """
     Create and display a sparkling card in the terminal with two string fields and a list of names.
@@ -38,15 +39,16 @@ def show_document_report(name: str, date: str, parties: list[str]) -> NoReturn:
     # Create a table for the list of names
     name_table = Table(show_header=False, box=None)
     name_table.add_column("Name", style="cyan")
-    for name in parties:
-        name_table.add_row(name)
+    for party in parties:
+        name_table.add_row(party)
 
     # Create the main panel
     # Combine the name, date, and table into a single Group
-    card_content = Group(Text(f"[b]{name}[/b]", style="bold"),
-                         Text(f"[b]{date}[/b]", style="bold"),
+    card_content = Group(Text(f"Name: {name}", style="bold"),
+                         Text(f"Effective Date: {date}", style="bold"),
                          name_table)
-    panel = Panel(card_content, style="bold magenta on black", title="[sparkle]Document Analysis[/sparkle]", subtitle="Details")
+    panel = Panel(card_content, style="bold magenta on black", title="[sparkle]Document Analysis[/sparkle]",
+                  subtitle="Details")
 
     # Print the card
     console.print(panel)
@@ -241,19 +243,15 @@ run_state = SpecialTypes.NEVER_RAN
 
 # Execution loop for agent
 while True:
-    print(f"Current tree state is {tree.output}")
-    print(f"Locked at node: {tree.locked_at_node_name}")
+
     if run_state == SpecialTypes.NEVER_RAN:
-        print("Starting tree with NEVER_RAN")
         user_prompt = input("Welcome to the document agent. What do you want to do?:\n1. Add a document to the "
                             "store\n2. Remove a document from the store\n3. Analyze a Document in the store\n4. "
                             "Exit\n\nYour Choice? ")
         run_value = tree.run(user_prompt)
         run_state = tree.output
-        print(f"Run state after starting from NEVER_RAN is {run_state}")
     elif run_state == SpecialTypes.EXECUTION_HALTED:
-        print("Starting loop with EXECUTION HALTED")
-        user_choice = input("Please confirm you want to proceed?")
+        user_choice = input("Please confirm you want to proceed? ")
         should_proceed = marvin.cast(user_choice, target=bool, instructions="Does the user appear to want to "
                                                                             "continue - True for yes or False for"
                                                                             " no")
@@ -265,9 +263,9 @@ while True:
             )
         else:
             print("Ok, we'll stop")
+            break
         run_state = tree.output
     else:
-        print(f"Starting with run state {run_state}")
         # If output indicates user wants to exit... stop the loop
         if run_state == "EXIT":
             print("Exiting!")
@@ -275,3 +273,5 @@ while True:
         # Otherwise, reset and start again
         else:
             run_state = SpecialTypes.NEVER_RAN
+
+        # os.system('cls' if os.name == 'nt' else 'clear')
