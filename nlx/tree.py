@@ -58,7 +58,7 @@ class ExecutionTree(BaseModel):
     nodes: Dict[str, BaseNode] = Field(default={})
     node_ids: Dict[str, UUID4] = Field(default={})
     node_names: Dict[UUID4, str] = Field(default={})
-    output: Any = Field(default=SpecialTypes.NEVER_FINISHED)
+    output: Any = Field(default=SpecialTypes.NEVER_RAN)
     compiled: bool = Field(default=False)
 
     @property
@@ -80,8 +80,8 @@ class ExecutionTree(BaseModel):
         """
         Expects that positional args will be the output of a function, so should be array of length 1
         """
-        print(f"Output {self.output} ({type(self.output)})")
-        if self.output != SpecialTypes.NEVER_FINISHED:
+        logger.debug(f"Output {self.output} ({type(self.output)})")
+        if self.output not in [SpecialTypes.NEVER_FINISHED, SpecialTypes.NEVER_RAN, SpecialTypes.EXECUTION_HALTED]:
             raise ValueError("Already handled output for tree suggesting you had parallel execution pathways... The "
                              "initial version of NLX requires you take a single execution pathway through"
                              "your DAG.")
@@ -191,8 +191,6 @@ class ExecutionTree(BaseModel):
             raise ValueError("You need to register a root node. Use the start_node=True argument on root node "
                              "decorator")
 
-        self._clear_execution_state()
-
         for node_name, node in self.nodes.items():
 
             if not node.route:
@@ -266,7 +264,7 @@ class ExecutionTree(BaseModel):
 
     def _clear_execution_state(self):
 
-        self.output = SpecialTypes.NEVER_FINISHED
+        self.output = SpecialTypes.NEVER_RAN
         self.locked_at_node_name = None
         self.input = None
 
@@ -291,7 +289,7 @@ class ExecutionTree(BaseModel):
             dict: A dictionary capturing the execution state and outputs of the workflows.
 
         """
-        print(f"run() - with args {args}")
+        logger.debug(f"run() - with args {args}")
 
         if not self.compiled:
             logger.warning(
@@ -307,7 +305,7 @@ class ExecutionTree(BaseModel):
         runtime_args['auto_approve'] = auto_approve
 
         if self.root:
-            print(f"Root node exists... proceed to run with {args}")
+            logger.debug(f"Root node exists... proceed to run with {args}")
 
             # First let's clear any residual state
             self._clear_execution_state()
@@ -326,10 +324,26 @@ class ExecutionTree(BaseModel):
                                          f"{self.locked_at_node_name} and {name}. We don't support that (yet...)")
                     else:
                         self.locked_at_node_name = name
+                        self.output = SpecialTypes.EXECUTION_HALTED
 
-            if self.locked_at_node_name:
-                return SpecialTypes.EXECUTION_HALTED
+            # If we ran the tree but nothing came back, just flip output to NO_RETURN (TODO - change that)
+            if self.output == SpecialTypes.NEVER_RAN:
+                self.output = SpecialTypes.NEVER_FINISHED
+
             return self.output
+
+    def _rehydrate_output(self, output: Any, node: BaseNode) -> Any:
+        """
+        If you try to run_from_node and pass in a prev_execution_state that was serialized, you will only be able to get
+        primitives, dicts, tuples and list. Objects and other types of variables will not be able to be serialized and
+        deserialized without custom tooling. This function is a place you can hook into the execution order and convert
+        the output_data from your selected start node back into the type it was supposed to be. For now, we only support
+        Pydantic BaseModel and child classes, but this could be extended or even made pluggable to support other things.
+        """
+        if (issubclass(node.output_type, BaseModel) or node.output_type is BaseModel) and isinstance(output, dict):
+            return node.output_type(**output)
+        else:
+            return output
 
     def run_from_node(
             self,
@@ -387,6 +401,8 @@ class ExecutionTree(BaseModel):
         if prev_execution_state is not None:
             exec_state = {**prev_execution_state}
             self.input = exec_state['input']
+
+            self.output = SpecialTypes(exec_state['output'])
             prev_execution_state_nodes = exec_state['nodes']
             start_after_node = prev_execution_state_nodes[node_name]
             logger.debug(f"run_from_node() - start after execution state {start_after_node}")
@@ -395,17 +411,27 @@ class ExecutionTree(BaseModel):
                 if state['executed']:
                     input_chain[node_name] = state['input_data']
 
-            input_data = start_after_node['input_data']
-            output_data = start_after_node['output_data']
+            start_node_input_data = start_after_node['input_data']
+            logger.debug(f"running next start node input data: {start_node_input_data}")
+            start_node_output_data = start_after_node['output_data']
+            logger.debug(f"Target type for output is: {start_node.output_type}")
 
-            logger.debug(f"run_from_node() - output_data: {output_data}")
-            logger.debug(f"run_from_node() - input_data: {input_data}")
+            # This is a hook for something that could become more modular - if the output type is a pydantic model,
+            # convert the now dict outputs to pydantic model. Could do other similar things in
+            # self._rehydrate_output(...)
+            start_node_output_data = self._rehydrate_output(start_node_output_data, start_node)
+            # if issubclass(start_node.output_type, BaseModel) or start_node.output_type is BaseModel:
+            #     start_node_output_data = start_node.output_type(**start_node_output_data)
+
+            logger.debug(f"running next with output data {start_node_output_data}")
+            logger.debug(f"run_from_node() - output_data: {start_node_output_data}")
+            logger.debug(f"run_from_node() - input_data: {start_node_input_data}")
 
         else:
             # First let's clear any residual state in the tree and nodes
             self.input = input_val
-            input_data = input_val
-            output_data = SpecialTypes.NEVER_FINISHED
+            start_node_input_data = input_val
+            start_node_output_data = SpecialTypes.NEVER_RAN
 
         # If this is not None, we don't rerun the node, we start AFTER
         # the node and pass through the override_output.
@@ -423,7 +449,7 @@ class ExecutionTree(BaseModel):
 
             logger.debug(f"Override_output is not None")
             start_node.run_next(
-                input_data,
+                start_node_input_data,
                 override_output,
                 runtime_args={
                     "input_chain": input_chain,
@@ -433,12 +459,11 @@ class ExecutionTree(BaseModel):
             )
 
         # If we have output in state from last time waiting approval
-        # NOTE - implicit rule is node cannot yield None as normal, expected output... not loving that.
-        elif output_data is not SpecialTypes.NEVER_FINISHED:
-            logger.debug(f"Node {start_node.name} produced outputs: {output_data}, pass these through")
+        elif start_node_output_data is not SpecialTypes.NEVER_FINISHED:
+            logger.debug(f"Node {start_node.name} produced outputs: {start_node_output_data}, pass these through")
             start_node.run_next(
-                input_data,
-                output_data,
+                start_node_input_data,
+                start_node_output_data,
                 runtime_args={
                     "input_chain": input_chain,
                     "input": self.input,
@@ -449,11 +474,7 @@ class ExecutionTree(BaseModel):
         # TODO - no test case is picking this up
         # Otherwise, the node never completed and we run the node AGAIN but do not pause execution
         else:
-            print(f"No overrides... rerun execution with input_data {input_data} / input chain {input_chain}")
-            print(f"Start node {start_node}")
-            print(f"Runtime_args: {runtime_args}")
-
-            if input_data == SpecialTypes.NOT_PROVIDED:
+            if start_node_input_data == SpecialTypes.NOT_PROVIDED:
                 start_node.run(
                     has_approval=has_approval,
                     runtime_args={
@@ -464,7 +485,7 @@ class ExecutionTree(BaseModel):
                 )
             else:
                 start_node.run(
-                    input_data,
+                    start_node_input_data,
                     has_approval=has_approval,
                     runtime_args={
                         "input_chain": input_chain,
@@ -475,7 +496,6 @@ class ExecutionTree(BaseModel):
 
         # Figure out where we have a stopped node and get name
         # ATM we do NOT support having multiple breakpoints in parallel branches.
-        locked_at_node_name = None
         for name, node in self.nodes.items():
             if node.waiting_for_approval:
                 if self.locked_at_node_name is not None:
@@ -484,40 +504,12 @@ class ExecutionTree(BaseModel):
                 else:
                     self.locked_at_node_name = name
 
-        # If we're picking up from an earlier execution state, need do to some surgery to graft
-        # the part of the DAG that just executed on the previous execution state
-        if prev_execution_state:
-            exec_state = {**prev_execution_state}
-            self.input = exec_state['input']
-            prev_execution_state_nodes = exec_state['nodes']
-
-            # Now get nodes that executed this time around and send
-            executed_nodes = [
-                node for node in self.nodes.values() if node.executed
-            ]
-
-            # Get their states, so we can merge that new execution state from specified node with
-            # previously passed execution state TO specified node
-            node_results_to_merge = {
-                node.name: node.model_dump() for node in executed_nodes
-            }
-
-            # Merge the new output states into the states for nodes we didn't re-run
-            merged_node_exec_states = {
-                **prev_execution_state_nodes,
-                **node_results_to_merge
-            }
-
-            # Build a new tree state.
-            exec_state['nodes'] = merged_node_exec_states
-
-        # Otherwise, if we're just starting from an arbitrary node, no need to graft an old state and new
-        # state together. We just want new state, which will only show execution from specified node.
-        else:
-            exec_state = self.model_dump()
-
         if self.locked_at_node_name:
             return SpecialTypes.EXECUTION_HALTED
+
+        if self.output == SpecialTypes.NEVER_RAN:
+            self.output = SpecialTypes.NEVER_FINISHED
+
         return self.output
 
     @property
@@ -529,7 +521,6 @@ class ExecutionTree(BaseModel):
         """
         # undirected_cycles = nx.cycle_basis(self.generate_nx_digraph(ignore_compile_flag=True).to_undirected())
         simple_cycles = list(nx.simple_cycles(self.generate_nx_digraph(ignore_compile_flag=True)))
-        print(f"Cycles: {simple_cycles}")
         return len(simple_cycles) > 0
 
     def generate_nx_digraph(self, ignore_compile_flag: bool = False) -> nx.DiGraph:
@@ -578,7 +569,7 @@ class ExecutionTree(BaseModel):
                     logger.warning(
                         f"Cannot show outputs of router function for {node.name} as func_router_possible_node_annot is Null")
             elif node.route is None:
-                logger.info(f"Node {node.name} is terminal. No next node.")
+                logger.debug(f"Node {node.name} is terminal. No next node.")
             else:
                 logger.error(f"Node {node.name} unrecognized route type {type(node.route)}")
         return G

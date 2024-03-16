@@ -1,0 +1,4 @@
+marvin==2.1.5
+requests
+jellyfish==1.0.3
+rich==13.7.0

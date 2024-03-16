@@ -6,6 +6,7 @@ OT = TypeVar('OT')  # Generic for Output Type
 
 
 class SpecialTypes(str, Enum):
+    NEVER_RAN = '__NEVER_RAN--'
     NO_RETURN = '__NO_RETURN--'
     NEVER_FINISHED = "__NEVER_FINISHED--"
     NOT_PROVIDED = "__NOT_PROVIDED--"
