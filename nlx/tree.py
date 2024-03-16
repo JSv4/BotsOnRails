@@ -61,6 +61,9 @@ class ExecutionTree(BaseModel):
     output: Any = Field(default=SpecialTypes.NEVER_RAN)
     compiled: bool = Field(default=False)
 
+    class Config:
+        arbitrary_types_allowed = True  # Allow arbitrary types
+
     @property
     def root(self) -> Optional[BaseNode]:
         """
@@ -272,10 +275,10 @@ class ExecutionTree(BaseModel):
             n.clear_state()
 
     def run(
-            self,
-            *args,
-            auto_approve: bool = False,
-            runtime_args: Optional[Dict] = None
+        self,
+        *args,
+        auto_approve: bool = False,
+        runtime_args: Optional[Dict] = None
     ) -> Any:
         """
         Initiates the execution of the workflows from the root node, processing through the tree based on defined paths.
@@ -316,7 +319,6 @@ class ExecutionTree(BaseModel):
                 runtime_args=runtime_args
             )
 
-            locked_at_node_name = None
             for name, node in self.nodes.items():
                 if node.waiting_for_approval:
                     if self.locked_at_node_name is not None:

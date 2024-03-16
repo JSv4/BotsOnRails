@@ -32,6 +32,7 @@ class BaseNode(BaseModel):
     func_router_possible_node_annot: Optional[List[str]] = Field(exclude=True, default=None)
     get_node: Optional[Callable[[str], 'BaseNode']] = Field(exclude=True, default=None)
     execute_function: Optional[Callable] = Field(default=None, exclude=True)
+    handle_function_completion_signal: Optional[Callable] = Field(default=None, exclude=True)
     unpack_output: bool = Field(default=True, description='If decorated function output is iterable like List or '
                                                           'Tuple, do we unpack and pass the positional args '
                                                           'separately or pass iterable output as a single positional '
@@ -53,10 +54,6 @@ class BaseNode(BaseModel):
     @field_serializer('input_type')
     def serialize_it(self, it, _info):
         return str(it)
-
-
-    class Config:
-        arbitrary_types_allowed = True  # Allow arbitrary types
 
     @field_validator('output_type')
     @classmethod
@@ -95,8 +92,40 @@ class BaseNode(BaseModel):
         logger.debug(f"{self.name} post_process_output(...) - for node {self.name} with input {node_output}")
         self.executed = True
         self.output_data = node_output
+
+        # If there is a handle_function_completion_signal... pass outputs to it.
+        if self.handle_function_completion_signal is not None:
+            self.handle_function_completion_signal(node_output)
+
         logger.debug(f"{self.name} post_process_output(...) - stored {self.output_data}")
         return node_output
+
+    def _handle_run_with_unpack_choice(self, original_output, runtime_args: Optional[Dict]):
+        if self.unpack_output:
+            if is_iterable_of_primitives(original_output):
+                self.get_node(
+                    self.selected_route
+                ).run(
+                    *original_output,
+                    has_approval=runtime_args.get('auto_approve', False),
+                    runtime_args=runtime_args
+                )
+            else:
+                self.get_node(
+                    self.selected_route
+                ).run(
+                    original_output,
+                    has_approval=runtime_args.get('auto_approve', False),
+                    runtime_args=runtime_args
+                )
+        else:
+            self.get_node(
+                self.selected_route
+            ).run(
+                original_output,
+                has_approval=runtime_args.get('auto_approve', False),
+                runtime_args=runtime_args
+            )
 
     def route_output(self, original_output: Any, runtime_args: Optional[Dict]):
         # If we passed in a routing function, run it with output to get target node
@@ -107,31 +136,12 @@ class BaseNode(BaseModel):
                 logger.debug(f"Node {self.name} has functional routing... proceed")
                 self.selected_route = self.route(original_output)
                 logger.debug(f"Node {self.name} - selected route is {self.selected_route}")
-                if self.unpack_output:
-                    if is_iterable_of_primitives(original_output):
-                        self.get_node(
-                            self.selected_route
-                        ).run(
-                            *original_output,
-                            has_approval=runtime_args.get('auto_approve', False),
-                            runtime_args=runtime_args
-                        )
-                    else:
-                        self.get_node(
-                            self.selected_route
-                        ).run(
-                            original_output,
-                            has_approval=runtime_args.get('auto_approve', False),
-                            runtime_args=runtime_args
-                        )
-                else:
-                    self.get_node(
-                        self.selected_route
-                    ).run(
-                        original_output,
-                        has_approval=runtime_args.get('auto_approve', False),
-                        runtime_args=runtime_args
-                    )
+
+                self._handle_run_with_unpack_choice(
+                    original_output,
+                    runtime_args,
+                )
+
             # If we passed in routing dictionary mapping outputs (preferably primitives) to
             # next id, fetch next id
             elif isinstance(self.route, dict):
@@ -144,63 +154,21 @@ class BaseNode(BaseModel):
                 if self.selected_route is None:
                     return
 
-                if self.unpack_output:
-                    if is_iterable_of_primitives(original_output):
-                        self.get_node(
-                            self.selected_route
-                        ).run(
-                            *original_output,
-                            has_approval=runtime_args.get('auto_approve', False),
-                            runtime_args=runtime_args
-                        )
-                    else:
-                        self.get_node(
-                            self.selected_route
-                        ).run(
-                            original_output,
-                            has_approval=runtime_args.get('auto_approve', False),
-                            runtime_args=runtime_args
-                        )
-                else:
-                    self.get_node(
-                        self.selected_route
-                    ).run(
-                        original_output,
-                        has_approval=runtime_args.get('auto_approve', False),
-                        runtime_args=runtime_args
-                    )
+                self._handle_run_with_unpack_choice(
+                    original_output,
+                    runtime_args,
+                )
+
             # Finally, if it's a single uuid, run it.
             elif isinstance(self.route, str):
                 logger.debug(f"Node {self.name} - has linked list routing... proceed")
                 logger.debug(f"\t--> to function `{self.route}` with inputs {original_output}")
                 self.selected_route = self.route
 
-                if self.unpack_output:
-                    if is_iterable_of_primitives(original_output):
-                        logger.debug(f"Original output {original_output} is iterable of primitives")
-                        self.get_node(
-                            self.route
-                        ).run(
-                            *original_output,
-                            has_approval=runtime_args.get('auto_approve', False),
-                            runtime_args=runtime_args
-                        )
-                    else:
-                        self.get_node(
-                            self.route
-                        ).run(
-                            original_output,
-                            has_approval=runtime_args.get('auto_approve', False),
-                            runtime_args=runtime_args
-                        )
-                else:
-                    self.get_node(
-                        self.route
-                    ).run(
-                        original_output,
-                        has_approval=runtime_args.get('auto_approve', False),
-                        runtime_args=runtime_args
-                    )
+                self._handle_run_with_unpack_choice(
+                    original_output,
+                    runtime_args,
+                )
 
             elif self.route is None:
                 logger.debug(f"Execution stopped at node {self.name}")

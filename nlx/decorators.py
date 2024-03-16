@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Optional, Callable, Dict, get_type_hints, List, NoReturn, Type
+from typing import Optional, Callable, Dict, get_type_hints, List, NoReturn, Type, Literal
 
 from nlx.nodes import BaseNode
 from nlx.types import OT
@@ -24,7 +24,8 @@ def node_for_tree(execution_tree):
     Returns:
     - A decorator function that takes a function and registers it as a node within the execution tree. This decorator
       can be customized with node-specific parameters such as `name`, `wait_for_approval`, and `next_nodes` to define
-      the node's behavior within the tree.
+      the node's behavior within the tree. If you pass a tuple with a special operator (currently only for_each) and
+      the target node, you can create a loop over outputs of node.
 
     Usage:
 
@@ -59,7 +60,7 @@ def node_for_tree(execution_tree):
             name: Optional[str] = None,
             start_node: bool = False,
             wait_for_approval: bool = False,
-            next_nodes: Optional[Callable[[OT], str] | Dict[OT, str] | str] = None,
+            next_nodes: Optional[Callable[[OT], str] | Dict[OT, str] | str | tuple[Literal['FOR_EACH'], str]] = None,
             func_router_possible_node_annot: Optional[List[str]] = None,
             unpack_output: bool = True
     ):
@@ -75,6 +76,14 @@ def node_for_tree(execution_tree):
             if 'return' in type_hints:
                 if 'return' in type_hints:
                     output_type = type_hints.pop('return', None)
+                    if not isinstance(output_type, (list, tuple)):
+                        if isinstance(next_nodes, tuple):
+                            raise ValueError("You can only use special iteration commands in next_nodes where output "
+                                             "type is a list or tuple!")
+            else:
+                if isinstance(next_nodes, tuple):
+                    raise ValueError("You can only use the for_each next node command where output type is annotated")
+
             if len(type_hints) > 0:
                 input_type = type_hints
 
