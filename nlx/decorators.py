@@ -62,7 +62,8 @@ def node_for_tree(execution_tree):
             wait_for_approval: bool = False,
             next_nodes: Optional[Callable[[OT], str] | Dict[OT, str] | str | tuple[Literal['FOR_EACH'], str]] = None,
             func_router_possible_node_annot: Optional[List[str]] = None,
-            unpack_output: bool = True
+            unpack_output: bool = True,
+            aggregator: bool = False
     ):
         def decorator(func):
             nonlocal name
@@ -95,7 +96,8 @@ def node_for_tree(execution_tree):
                 execute_function=func,
                 route=next_nodes,
                 func_router_possible_node_annot=func_router_possible_node_annot,
-                unpack_output=unpack_output
+                unpack_output=unpack_output,
+                aggregator=aggregator
             )
 
             if output_type is not None:

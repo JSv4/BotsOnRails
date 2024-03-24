@@ -140,7 +140,8 @@ def type_allowed_under_optional_annot(type_annot, annotation) -> bool:
 def match_types(
         previous_func_output: Any,
         next_function: Callable,
-        unpack_output: bool = True
+        unpack_output: bool = True,
+        for_each_loop: bool = False,
 ):
     """
     Checks if the output of a function A is iterable, has the same count as the number of positional
@@ -194,11 +195,24 @@ def match_types(
             else:
                 raise ValueError(f"Return type is not an iterable (and single, unpackable value), yet next function "
                                  f"expects multiple positional args - {input_params} {input_params.values()}")
-    elif not unpack_output:
+    elif for_each_loop:
         if len(input_params.items()) == 1:
             if previous_func_output != list(input_params.values())[0]:
-                raise ValueError(f"Mismatched input between output ({previous_func_output} and next input "
+                raise ValueError(f"for_each_loop - Mismatched input between output ({previous_func_output} and next input "
                                  f"({list(input_params.values())[0]}). YOU ARE USING FLAG unpack_output.")
+        else:
+            raise ValueError(f"Return type is an iterable, and you want to loop over each of its constituent elements."
+                             f"We check that the constituent parts of the list or tuple are what's expected as an input"
+                             f"for the next function, but it expects multiple inputs.")
+
+    elif not unpack_output:
+
+        contents_of_iterable = unpack_annotation(previous_func_output)
+
+        if len(input_params.items()) == 1:
+            if contents_of_iterable[0] != list(input_params.values())[0]:
+                raise ValueError(f"Mismatched input between output ({contents_of_iterable[0]} and next input "
+                                 f"({list(input_params.values())[0]}). YOU ARE NOT USING FLAG unpack_output.")
         else:
             raise ValueError(f"Return type is an iterable, but you explicitly instructed us not to unpack it (with "
                              f"unpack_output=False), yet next function expects"
@@ -210,20 +224,19 @@ def match_types(
         logger.debug(f"Function {next_function.__name__} expects input of {next_func_input_types}")
         prev_f_unpacked_annot = unpack_annotation(previous_func_output)
 
-        # We have a couple different cases to handle here
-        # 1) We have an output iterable with more constituent members than positional args in next function (that's an
-        # error) UNLESS there's an *args parameter
         if len(prev_f_unpacked_annot) > len(next_func_input_types) and 'args' not in input_signature_params:
-            raise ValueError(f"Function {next_function.__name__} is going to receive too many positional arguments: "
-                             f"{prev_f_unpacked_annot}")
+            raise ValueError(
+                f"Function {next_function.__name__} is going to receive too many positional arguments: "
+                f"{prev_f_unpacked_annot}")
 
         # 2) The output iterable has exactly same # of constituent members as inputs, in which case we need to check
         # annotations are same.
         if len(prev_f_unpacked_annot) == len(next_func_input_types):
             for index, (out_type, b_arg_type) in enumerate(zip(prev_f_unpacked_annot, next_func_input_types)):
                 if out_type != b_arg_type:
-                    raise ValueError(f"Mismatch in input iterable @ pos {index} to {next_function.__name__} - output "
-                                     f"type {out_type} != {b_arg_type} ")
+                    raise ValueError(
+                        f"Mismatch in input iterable @ pos {index} to {next_function.__name__} - output "
+                        f"type {out_type} != {b_arg_type} ")
 
         # 3) We have an output iterable with fewer constituent members than input, in which case this CAN be valid IF
         # we have a) more than enough values for non-optional values and b) any remaining values have same type as
@@ -240,8 +253,9 @@ def match_types(
                 if next_func_input_types[index] == opt_inp:
                     pass
                 elif not type_allowed_under_optional_annot(opt_inp, next_func_input_types[index]):
-                    raise ValueError(f"Positional argument # {index} for function {next_function.__name__} is Union "
-                                     f"({next_func_input_types[index]}) but doesn't allow type {opt_inp}")
+                    raise ValueError(
+                        f"Positional argument # {index} for function {next_function.__name__} is Union "
+                        f"({next_func_input_types[index]}) but doesn't allow type {opt_inp}")
 
 
 def is_iterable_of_primitives(value: Any) -> bool:

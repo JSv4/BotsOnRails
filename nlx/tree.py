@@ -1,7 +1,7 @@
 import collections.abc
 import logging
 import uuid
-from typing import Dict, Callable, Any, Optional, NoReturn
+from typing import Dict, Callable, Any, Optional, NoReturn, Literal
 from graphviz import Digraph
 
 import networkx as nx
@@ -156,6 +156,22 @@ class ExecutionTree(BaseModel):
         source_node = self.nodes[source_node_name]
         source_node.route = routing
 
+    def _add_for_each_route(
+            self,
+            source_node_name: str,
+            routing: tuple[Literal['FOR_EACH'], str]
+    ):
+        logger.debug(f"_add_for_each_route - from `{source_node_name}` to `{routing[1]}`")
+
+        if routing[0] != "FOR_EACH":
+            raise ValueError("While attempting to add a FOR_EACH route, the provided route is not of form "
+                             "tuple['FOR_EACH', <target_node_name>]")
+
+        from_node_instance = self.nodes[source_node_name]
+        to_node_instance = self.nodes[routing[1]]
+        logger.debug(f"\tFrom `{from_node_instance.id}` to `{to_node_instance.id}`")
+        from_node_instance.route = routing
+
     def _add_functional_route(
             self,
             source_node_name: str,
@@ -212,6 +228,21 @@ class ExecutionTree(BaseModel):
                         )
 
                     self._add_static_route(node_name, node.route)
+
+            elif isinstance(node.route, tuple):
+                print(f"Compiling node with route {node.route}, which IS a tuple")
+                if node.route[0] == 'FOR_EACH' and isinstance(node.route[1], str):
+                    if type_checking:
+                        target_node = self.nodes[node.route[1]]
+                        match_types(
+                            node.output_type,
+                            target_node.execute_function,
+                            unpack_output=node.unpack_output,
+                            for_each_loop=True
+                        )
+                    self._add_for_each_route(node_name, node.route)
+                else:
+                    raise ValueError(f"Unsupported special routing command {node.route[0]}.")
 
             elif callable(node.route):
                 # For function-based routing, create a functional router node

@@ -32,6 +32,7 @@ class BaseNode(BaseModel):
     func_router_possible_node_annot: Optional[List[str]] = Field(exclude=True, default=None)
     get_node: Optional[Callable[[str], 'BaseNode']] = Field(exclude=True, default=None)
     execute_function: Optional[Callable] = Field(default=None, exclude=True)
+    aggregator: bool = Field(default=False, description='Indicates if this node is an aggregator node')
     handle_function_completion_signal: Optional[Callable] = Field(default=None, exclude=True)
     unpack_output: bool = Field(default=True, description='If decorated function output is iterable like List or '
                                                           'Tuple, do we unpack and pass the positional args '
@@ -141,6 +142,11 @@ class BaseNode(BaseModel):
                     original_output,
                     runtime_args,
                 )
+
+            # If we passed in a tuple for a special command - e.g. ('FOR_EACH', 'process_iterable_elem')
+            elif isinstance(self.route, tuple):
+                for item in original_output:
+                    self.get_node(self.route[1]).run(item, runtime_args=runtime_args)
 
             # If we passed in routing dictionary mapping outputs (preferably primitives) to
             # next id, fetch next id
