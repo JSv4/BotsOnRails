@@ -48,6 +48,10 @@ class BaseNode(BaseModel):
         self.runtime_args = {}
         self.selected_route = None
 
+    @property
+    def for_each_start_node(self) -> bool:
+        return isinstance(self.route, tuple) and len(self.route) == 2 and self.route[0] == "FOR_EACH"
+
     @field_serializer('output_type')
     def serialize_dt(self, ot, _info):
         return str(ot)
@@ -218,13 +222,25 @@ class BaseNode(BaseModel):
         if self.wait_for_approval and not has_approval:
             logger.debug(f"Node {self.name} is waiting for approval")
             self.waiting_for_approval = True
+        # If this is an aggregator BUT we are still expecting more iterations
+        elif self.aggregator:
+            logger.debug(f"Node {self.name} is an aggregator")
+            if self.tree.state_store[self.name]['actual'] == 0:
+                logger.debug(f"First time aggregator ran... set node output data to {[processed_output]}")
+                self.output_data = [processed_output]
+            elif self.tree.state_store[self.name]['actual'] < self.tree.state_store[self.name]['expected']:
+                logger.debug(f"Aggregator has run fewer times than expected... continue to aggregate")
+                self.output_data += processed_output
+            else:
+                logger.debug(f"Aggregator {self.name} is proceeding to router with results {self.output_data}")
+                self.route_output(self.output_data, runtime_args=runtime_args)
         else:
             logger.debug(f"Node {self.name} is proceeding to router with results {processed_output}")
             self.route_output(processed_output, runtime_args=runtime_args)
 
     def run_next(self, input_data: IT, output_data: OT, runtime_args: Optional[Dict] = None):
         """
-        Take static inputs & outputs for this node and just run the router.
+        Take static inputs & outputs for this node and just run the router. Cannot do this if this is inside of a cycle
 
         :param input_data:
         :param output_data:

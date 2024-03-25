@@ -196,8 +196,11 @@ def match_types(
                 raise ValueError(f"Return type is not an iterable (and single, unpackable value), yet next function "
                                  f"expects multiple positional args - {input_params} {input_params.values()}")
     elif for_each_loop:
+
+        contents_of_iterable = unpack_annotation(previous_func_output)
+
         if len(input_params.items()) == 1:
-            if previous_func_output != list(input_params.values())[0]:
+            if contents_of_iterable[0] != list(input_params.values())[0]:
                 raise ValueError(f"for_each_loop - Mismatched input between output ({previous_func_output} and next input "
                                  f"({list(input_params.values())[0]}). YOU ARE USING FLAG unpack_output.")
         else:
@@ -207,11 +210,9 @@ def match_types(
 
     elif not unpack_output:
 
-        contents_of_iterable = unpack_annotation(previous_func_output)
-
         if len(input_params.items()) == 1:
-            if contents_of_iterable[0] != list(input_params.values())[0]:
-                raise ValueError(f"Mismatched input between output ({contents_of_iterable[0]} and next input "
+            if previous_func_output != list(input_params.values())[0]:
+                raise ValueError(f"Mismatched input between output ({previous_func_output} and next input "
                                  f"({list(input_params.values())[0]}). YOU ARE NOT USING FLAG unpack_output.")
         else:
             raise ValueError(f"Return type is an iterable, but you explicitly instructed us not to unpack it (with "

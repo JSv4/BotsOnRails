@@ -17,7 +17,6 @@ from nlx.utils import match_types
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 class ExecutionTree(BaseModel):
     """
         A flexible and lightweight tree-based execution orchestrator designed for managing
@@ -60,6 +59,9 @@ class ExecutionTree(BaseModel):
     node_names: Dict[UUID4, str] = Field(default={})
     output: Any = Field(default=SpecialTypes.NEVER_RAN)
     compiled: bool = Field(default=False)
+    state_store: dict = Field(default={})
+    allow_cycles: bool = Field(default=True)
+    for_each_cycles: list[list[str]] = Field(default=[])
 
     class Config:
         arbitrary_types_allowed = True  # Allow arbitrary types
@@ -200,6 +202,45 @@ class ExecutionTree(BaseModel):
         logger.debug(f"\tFrom `{from_node_instance.id}` to `{to_node_instance.id}`")
         from_node_instance.route = to_node
 
+    def _validate_cycles(self, nx_digraph: nx.DiGraph) -> list[list[str]]:
+        """
+        Returns list of valid for_each cycles (as lists of node ids) in digraph or throws error.
+        Will fail if for_each doesn't end with aggregate or
+        """
+        logger.debug("Entering detect_cycles function")
+        cycles = list(nx.simple_cycles(nx_digraph))
+        logger.debug(f"Found {len(cycles)} cycles: {cycles}")
+        for_each_cycles = []
+
+        logger.debug("Iterating over cycles")
+        for cycle in cycles:
+            logger.debug(f"Processing cycle: {cycle}")
+            start_node = nx_digraph.nodes[cycle[0]]
+            logger.debug(f"Start node: {cycle[0]} with attributes: {start_node}")
+            end_node = nx_digraph.nodes[cycle[-1]]
+            logger.debug(f"End node: {cycle[-1]} with attributes: {end_node}")
+
+            if start_node['for_each'] and end_node['aggregate']:
+                logger.debug(f"Found a valid FOR_EACH cycle: {cycle}")
+                for_each_cycles.append(cycle)
+            elif start_node['for_each'] and not end_node['aggregate']:
+                logger.error(f"For-each cycle starting with node {cycle[0]} does not end with an aggregation node.")
+                raise ValueError(f"For-each cycle starting with node {cycle[0]} does not end with an aggregation node.")
+            else:
+                # We'll want to have other types of cycle validations, probably, for other types of cycles.
+                pass
+
+        logger.debug(f"Checking for nested cycles in {cycles}")
+        for i in range(len(cycles)):
+            for j in range(i + 1, len(cycles)):
+                logger.debug(f"Comparing cycle {cycles[i]} with cycle {cycles[j]}")
+                if set(cycles[i]).issubset(cycles[j]) or set(cycles[j]).issubset(cycles[i]):
+                    logger.error("Nested cycles are not allowed.")
+                    raise ValueError("Nested cycles are not allowed.")
+
+        logger.debug("Leaving detect_cycles function")
+        return for_each_cycles
+
     def compile(self, type_checking: bool = False):
         """
         Dynamically generates router nodes and edges by traversing the nodes list
@@ -279,9 +320,14 @@ class ExecutionTree(BaseModel):
             else:
                 logger.warning(f"Node {node_name} has an unrecognized route type: {type(node.route)}")
 
-        if self.has_cycle:
-            raise ValueError("Sorry we don't support circular flows / cycles (yet...)")
-
+        # Check there are NO nested cycles and setup state store for FOR_EACH cycles.
+        if self.allow_cycles:
+            for_each_cycles = self._validate_cycles(self.generate_nx_digraph(ignore_compile_flag=True))
+            self.state_store = {cycle[0]: {'expected': 0, 'actual': 0} for cycle in for_each_cycles}
+            self.for_each_cycles = for_each_cycles
+        else:
+            if self.has_cycle:
+                raise ValueError("allow_cycles is set to False but the tree has cycles...")
         self.compiled = True
 
     def get_node(self, name: str) -> Optional[BaseNode]:
@@ -578,7 +624,7 @@ class ExecutionTree(BaseModel):
         for name, node in self.nodes.items():
             logger.debug(f"generate_graph() - Add node {name}")
             logger.debug(f"\t...to return to link route (type {type(node.route)}): {node.route}")
-            G.add_node(name)
+            G.add_node(name, for_each=node.for_each_start_node, aggregate=node.aggregator)
 
         for name, node in self.nodes.items():
             if isinstance(node.route, list):
