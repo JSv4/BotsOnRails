@@ -367,7 +367,7 @@ class ExecutionTree(BaseModel):
                     0
                 )
                 print(f"Register cycle in state store {cycle[0]} / {cycle[len(cycle)-1]}")
-                self.state_store.register_cycle(cycle[0], cycle[len(cycle)-1])
+                self.state_store.register_cyclefind_cycles_and_for_each_paths(cycle[0], cycle[len(cycle)-1])
             self.for_each_cycles = for_each_cycles
         else:
             if self.has_cycle:

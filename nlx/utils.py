@@ -322,30 +322,43 @@ def find_cycles_and_for_each_paths(graph, root_node_id: Any):
     #     if graph.in_degree(node) == 0:  # Start traversal from root nodes
     #         dfs(node, [], visited)
 
-    def dfs(node_id, path, is_for_each):
+    def dfs(node_id, path, for_each_start_id, visited):
 
-        print(f"Analyze node {node_id} with path {path} for each {is_for_each}")
+        print(f"Analyze node {node_id} with path {path} for each {for_each_start_id} - visited: {visited}")
+
+        if node_id in visited:
+            return
+        visited.add(node_id)
+
         path.append(node_id)
 
         if graph.nodes[node_id].get('for_each', False):
-            is_for_each = True
+            print(f"Node {node_id} is for_each")
+            for_each_start_id = node_id
 
-        if node_id in cycle_nodes:
+        if node_id in cycle_nodes and for_each_start_id is not None:
             raise ValueError(f"For_each node {node_id} is inside a cycle.")
 
-        if graph.nodes[node_id].get('aggregator', False) and is_for_each:
-            for_each_paths.append(tuple(path.copy()))
-            is_for_each = False
+        if graph.nodes[node_id].get('aggregator', False) and for_each_start_id is not None:
+            print(f"{node_id} is aggregator and for in for_each loop... append {path}")
+            for_each_paths.append((for_each_start_id, node_id))
+            for_each_start_id = None
 
-        if graph.out_degree(node_id) > 1 and is_for_each:
-            raise ValueError(f"Encountered a branch at node {node_id} while traversing from for_each node {node_id}.")
+        if graph.out_degree(node_id) > 1 and for_each_start_id is not None:
+            raise ValueError(f"Encountered a branch at node {node_id} while traversing from for_each node starting at {node_id}")
 
-        for neighbor in graph.successors(node_id):
-            dfs(neighbor, path, is_for_each)
+        successor_nodes = list(graph.successors(node_id))
+        print(f"Successor nodes: {successor_nodes}")
+        if len(successor_nodes) == 0 and for_each_start_id is not None:
+            raise ValueError(f"No aggregator node found for for_each branch starting at {for_each_start_id}")
+        else:
+            for neighbor in graph.successors(node_id):
+                dfs(neighbor, path, for_each_start_id, visited)
 
         path.pop()
 
-    dfs(root_node_id, [], False)
+    visited = set()
+    dfs(root_node_id, [], None, visited)
 
     cycle_tuples = [(cycle[0], cycle[-1]) for cycle in cycles]
     print(f"*** Cycle tuples: {cycle_tuples}")
