@@ -347,11 +347,6 @@ def find_cycles_and_for_each_paths(graph, root_node_id: Any):
 
     dfs(root_node_id, [], False)
 
-    # for node in graph.nodes:
-    #     if graph.in_degree(node) == 0:  # Start traversal from root nodes
-    #         print(f"Running dfs on {node}")
-    #         dfs(node, [], False)
-
     cycle_tuples = [(cycle[0], cycle[-1]) for cycle in cycles]
     print(f"*** Cycle tuples: {cycle_tuples}")
     return cycle_tuples, for_each_paths

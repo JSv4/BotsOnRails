@@ -30,12 +30,8 @@ def test_cycle_with_for_each_node():
     graph.add_nodes_from([1], for_each=True)
     graph.add_nodes_from([2,3])
     graph.add_edges_from([(1,2), (2,3), (3,1)])
-    cycle_analysis = find_cycles_and_for_each_paths(graph, 1)
-    cycles, for_each_paths = cycle_analysis
-    print(f"cycles: {cycles}")
-    print(f"for_each_paths: {for_each_paths}")
-    with pytest.raises(ValueError, match="For_each node 2 is inside a cycle."):
-        find_cycles_and_for_each_paths(graph)
+    with pytest.raises(ValueError, match="For_each node 1 is inside a cycle."):
+        find_cycles_and_for_each_paths(graph, 1)
 
 
 def test_for_each_path_with_branch():
