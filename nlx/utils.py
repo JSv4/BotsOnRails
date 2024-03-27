@@ -1,7 +1,9 @@
 import inspect
+import itertools
 import json
 import logging
 import uuid
+import networkx as nx
 from typing import Any, Callable, get_type_hints, NoReturn, List, get_origin, Union, get_args, Tuple
 
 logger = logging.getLogger(__name__)
@@ -172,6 +174,8 @@ def match_types(
     input_signature_params = inspect.signature(next_function).parameters
     input_params.pop('return')  # We don't want return type on the input annotation hint
     annot = get_origin(previous_func_output)
+    print(f"Previous function annot origin: {annot}")
+    print(f"This is unpackable: {unpackable_annotation(get_origin(previous_func_output))}")
 
     if not unpackable_annotation(get_origin(previous_func_output)):
         if previous_func_output == NoReturn:
@@ -197,6 +201,7 @@ def match_types(
                                  f"expects multiple positional args - {input_params} {input_params.values()}")
     elif for_each_loop:
 
+        print("This is a for_each loop!")
         contents_of_iterable = unpack_annotation(previous_func_output)
 
         if len(input_params.items()) == 1:
@@ -207,6 +212,9 @@ def match_types(
             raise ValueError(f"Return type is an iterable, and you want to loop over each of its constituent elements."
                              f"We check that the constituent parts of the list or tuple are what's expected as an input"
                              f"for the next function, but it expects multiple inputs.")
+
+        print(f"For_each loop typing works! Each {contents_of_iterable[0]} in list can be passed as input to function "
+              f"expecting {list(input_params.values())[0]}")
 
     elif not unpack_output:
 
@@ -270,3 +278,80 @@ def is_iterable_of_primitives(value: Any) -> bool:
     """
     # Check if the value is an iterable but not a string/bytes/bytearray
     return isinstance(value, (tuple, list)) and not isinstance(value, (str, bytes, bytearray))
+
+
+def find_cycles_and_for_each_paths(graph, root_node_id: Any):
+    cycles = list(nx.simple_cycles(graph))
+    cycle_nodes = list(itertools.chain.from_iterable(cycles))
+    print(f"* find_cycles_and_for_each_paths - cycles: {cycles}")
+    print(f"** Cycle nodes: {cycle_nodes}")
+    for_each_paths = []
+
+    # def dfs(node, path, visited):
+    #     print(f"dfs - node {node} / path {path} / visited {visited}")
+    #     if node in visited:
+    #         return
+    #     visited.add(node)
+    #     path.append(node)
+    #
+    #     for_each_nodes = graph.nodes[node].get('for_each', False)
+    #     print(f"\tIs for_each nodes: {for_each_nodes}")
+    #
+    #     if graph.nodes[node].get('for_each', False):
+    #         if node in cycle_nodes:
+    #             raise ValueError(f"For_each node {node} is inside a cycle.")
+    #         for neighbor in graph.successors(node):
+    #             is_aggregator = graph.nodes[neighbor].get('aggregator', False)
+    #             print(f"\tProcess neighbor: {neighbor} - is_aggregator: {is_aggregator}")
+    #             if is_aggregator:
+    #                 for_each_paths.append((node, neighbor))
+    #                 return
+    #             elif graph.out_degree(neighbor) > 1:
+    #                 raise ValueError(f"Encountered a branch at node {neighbor} while traversing from for_each node {node}.")
+    #             else:
+    #                 dfs(neighbor, path, visited)
+    #         raise ValueError(f"No aggregator node found for for_each node {node}.")
+    #
+    #     for neighbor in graph.successors(node):
+    #         dfs(neighbor, path, visited)
+
+    # visited = set()
+    # # Look for for_each nodes
+    # for node in graph.nodes:
+    #     print(f"Process node {node} in graph.nodes")
+    #     if graph.in_degree(node) == 0:  # Start traversal from root nodes
+    #         dfs(node, [], visited)
+
+    def dfs(node_id, path, is_for_each):
+
+        print(f"Analyze node {node_id} with path {path} for each {is_for_each}")
+        path.append(node_id)
+
+        if graph.nodes[node_id].get('for_each', False):
+            is_for_each = True
+
+        if node_id in cycle_nodes:
+            raise ValueError(f"For_each node {node_id} is inside a cycle.")
+
+        if graph.nodes[node_id].get('aggregator', False) and is_for_each:
+            for_each_paths.append(tuple(path.copy()))
+            is_for_each = False
+
+        if graph.out_degree(node_id) > 1 and is_for_each:
+            raise ValueError(f"Encountered a branch at node {node_id} while traversing from a for_each node.")
+
+        for neighbor in graph.successors(node_id):
+            dfs(neighbor, path, is_for_each)
+
+        path.pop()
+
+    dfs(root_node_id, [], False)
+
+    # for node in graph.nodes:
+    #     if graph.in_degree(node) == 0:  # Start traversal from root nodes
+    #         print(f"Running dfs on {node}")
+    #         dfs(node, [], False)
+
+    cycle_tuples = [(cycle[0], cycle[-1]) for cycle in cycles]
+    print(f"*** Cycle tuples: {cycle_tuples}")
+    return cycle_tuples, for_each_paths

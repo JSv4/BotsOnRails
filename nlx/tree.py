@@ -1,16 +1,17 @@
 import collections.abc
 import logging
 import uuid
-from typing import Dict, Callable, Any, Optional, NoReturn, Literal
+from typing import Dict, Callable, Any, Optional, NoReturn, Literal, Tuple
 from graphviz import Digraph
 
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.drawing.nx_pydot import graphviz_layout
 
-from pydantic import BaseModel, Field, UUID4
+from pydantic import BaseModel, Field, UUID4, ConfigDict
 
 from nlx.nodes import BaseNode
+from nlx.stores import StateStore, InMemoryStateStore
 from nlx.types import OT, SpecialTypes
 from nlx.utils import match_types
 
@@ -59,9 +60,11 @@ class ExecutionTree(BaseModel):
     node_names: Dict[UUID4, str] = Field(default={})
     output: Any = Field(default=SpecialTypes.NEVER_RAN)
     compiled: bool = Field(default=False)
-    state_store: dict = Field(default={})
+    state_store: StateStore = Field(exclude=True, default_factory=InMemoryStateStore)
     allow_cycles: bool = Field(default=True)
     for_each_cycles: list[list[str]] = Field(default=[])
+    for_each_start_node_ids: list[str] = Field(default=[])
+    for_each_end_node_ids: list[str] = Field(default=[])
 
     class Config:
         arbitrary_types_allowed = True  # Allow arbitrary types
@@ -85,7 +88,8 @@ class ExecutionTree(BaseModel):
         """
         Expects that positional args will be the output of a function, so should be array of length 1
         """
-        logger.debug(f"Output {self.output} ({type(self.output)})")
+        print(f"handle_output - Existing output is {self.output} ({type(self.output)})")
+        print(f"handle_output - Positional args: {args}")
         if self.output not in [SpecialTypes.NEVER_FINISHED, SpecialTypes.NEVER_RAN, SpecialTypes.EXECUTION_HALTED]:
             raise ValueError("Already handled output for tree suggesting you had parallel execution pathways... The "
                              "initial version of NLX requires you take a single execution pathway through"
@@ -132,7 +136,7 @@ class ExecutionTree(BaseModel):
             self.root_node_id = node.id
 
         node.get_node = lambda x: self.get_node(x)
-        node.handle_output = self.handle_output
+        node.handle_leaf_output = self.handle_output
 
         if node.route is not None:
             self.compiled = False  # If Node is added with a route, we have to re-compile edges
@@ -207,9 +211,9 @@ class ExecutionTree(BaseModel):
         Returns list of valid for_each cycles (as lists of node ids) in digraph or throws error.
         Will fail if for_each doesn't end with aggregate or
         """
-        logger.debug("Entering detect_cycles function")
+        print("Entering detect_cycles function")
         cycles = list(nx.simple_cycles(nx_digraph))
-        logger.debug(f"Found {len(cycles)} cycles: {cycles}")
+        print(f"Found {len(cycles)} cycles: {cycles}")
         for_each_cycles = []
 
         logger.debug("Iterating over cycles")
@@ -223,6 +227,8 @@ class ExecutionTree(BaseModel):
             if start_node['for_each'] and end_node['aggregate']:
                 logger.debug(f"Found a valid FOR_EACH cycle: {cycle}")
                 for_each_cycles.append(cycle)
+                self.for_each_start_node_ids.append(start_node)
+                self.for_each_end_node_ids.append(end_node)
             elif start_node['for_each'] and not end_node['aggregate']:
                 logger.error(f"For-each cycle starting with node {cycle[0]} does not end with an aggregation node.")
                 raise ValueError(f"For-each cycle starting with node {cycle[0]} does not end with an aggregation node.")
@@ -253,10 +259,15 @@ class ExecutionTree(BaseModel):
 
         for node_name, node in self.nodes.items():
 
+            print(f"Compile {node_name}")
+
             if not node.route:
                 continue  # Skip nodes without routing
 
             if isinstance(node.route, dict):
+
+                print(f"Appears we have static routing via a dict: {node.route}")
+
                 # For dict-based routing, create conditional router nodes
                 for condition_value, target_node_name in node.route.items():
 
@@ -271,9 +282,11 @@ class ExecutionTree(BaseModel):
                     self._add_static_route(node_name, node.route)
 
             elif isinstance(node.route, tuple):
-                print(f"Compiling node with route {node.route}, which IS a tuple")
+                print(f"Compiling node with route {node.route}, which IS a tuple - output type {node.output_type}")
                 if node.route[0] == 'FOR_EACH' and isinstance(node.route[1], str):
+                    print("Meets for_each syntax requirements")
                     if type_checking:
+                        print("Type checking is enabled for the for_each loop components...")
                         target_node = self.nodes[node.route[1]]
                         match_types(
                             node.output_type,
@@ -281,11 +294,15 @@ class ExecutionTree(BaseModel):
                             unpack_output=node.unpack_output,
                             for_each_loop=True
                         )
+                        print("Type checking passed!")
                     self._add_for_each_route(node_name, node.route)
                 else:
                     raise ValueError(f"Unsupported special routing command {node.route[0]}.")
 
             elif callable(node.route):
+
+                print(f'Appears we have dynamic routing via a function {node.route}')
+
                 # For function-based routing, create a functional router node
                 # Assuming we can extract or have predefined target annotations for dynamic functions
                 if node.func_router_possible_node_annot:
@@ -305,7 +322,9 @@ class ExecutionTree(BaseModel):
                         f"Node {node_name} uses a routing function but does not have func_router_possible_node_annot set.")
 
             elif isinstance(node.route, str):
+
                 # For direct routing, simply add a direct route
+                print(f'Appears we have direct routing to {node.route}')
 
                 if type_checking:
                     target_node = self.nodes[node.route]
@@ -323,7 +342,32 @@ class ExecutionTree(BaseModel):
         # Check there are NO nested cycles and setup state store for FOR_EACH cycles.
         if self.allow_cycles:
             for_each_cycles = self._validate_cycles(self.generate_nx_digraph(ignore_compile_flag=True))
-            self.state_store = {cycle[0]: {'expected': 0, 'actual': 0} for cycle in for_each_cycles}
+            print(f"For each cycles: {for_each_cycles}")
+
+            # Populate state store with iteration counts.
+            for cycle in for_each_cycles:
+                self.state_store.set_property_for_node(
+                    cycle[0],
+                    'expected',
+                    0
+                )
+                self.state_store.set_property_for_node(
+                    cycle[0],
+                    'actual',
+                    0
+                )
+                self.state_store.set_property_for_node(
+                    cycle[len(cycle) - 1],
+                    'actual',
+                    0
+                )
+                self.state_store.set_property_for_node(
+                    cycle[len(cycle) - 1],
+                    'expected',
+                    0
+                )
+                print(f"Register cycle in state store {cycle[0]} / {cycle[len(cycle)-1]}")
+                self.state_store.register_cycle(cycle[0], cycle[len(cycle)-1])
             self.for_each_cycles = for_each_cycles
         else:
             if self.has_cycle:
@@ -647,6 +691,14 @@ class ExecutionTree(BaseModel):
                 else:
                     logger.warning(
                         f"Cannot show outputs of router function for {node.name} as func_router_possible_node_annot is Null")
+            elif isinstance(node.route, (tuple, Tuple)):
+                logger.debug(f"Node {node.name} is a special command with a tuple.")
+                if node.route[0] == 'FOR_EACH' and isinstance(node.route[1], str):
+                    print("Meets for_each syntax requirements")
+                    G.add_edge(name, node.route[1], special_command="FOR_EACH")
+                else:
+                    raise ValueError(f"Unsupported special routing command {node.route[0]}.")
+
             elif node.route is None:
                 logger.debug(f"Node {node.name} is terminal. No next node.")
             else:
