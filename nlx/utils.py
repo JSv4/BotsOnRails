@@ -338,7 +338,7 @@ def find_cycles_and_for_each_paths(graph, root_node_id: Any):
             is_for_each = False
 
         if graph.out_degree(node_id) > 1 and is_for_each:
-            raise ValueError(f"Encountered a branch at node {node_id} while traversing from a for_each node.")
+            raise ValueError(f"Encountered a branch at node {node_id} while traversing from for_each node {node_id}.")
 
         for neighbor in graph.successors(node_id):
             dfs(neighbor, path, is_for_each)

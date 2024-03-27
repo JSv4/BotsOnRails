@@ -36,11 +36,12 @@ def test_cycle_with_for_each_node():
 
 def test_for_each_path_with_branch():
     graph = nx.DiGraph()
-    graph.add_nodes_from([1, 2, 3], for_each=True)
+    graph.add_nodes_from([1, 3], for_each=True)
+    graph.add_nodes_from([2])
     graph.add_nodes_from([4, 5], aggregator=True)
     graph.add_edges_from([(1, 2), (2, 3), (3, 4), (3, 5)])
-    with pytest.raises(ValueError, match="Encountered a branch at node 3 while traversing from for_each node 1."):
-        find_cycles_and_for_each_paths(graph)
+    with pytest.raises(ValueError, match="Encountered a branch at node 3 while traversing from for_each node 3."):
+        find_cycles_and_for_each_paths(graph, 1)
 
 
 def test_for_each_path_without_aggregator():
