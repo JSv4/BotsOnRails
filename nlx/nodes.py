@@ -87,6 +87,8 @@ class BaseNode(BaseModel):
         if 'custom_handle_output' in kwargs:
             self.handle_leaf_output = kwargs['custom_handle_output']
 
+        print(f"BaseNode {self.name} state store address: {id(self.state_store)}")
+
     def _execute(self, *args, runtime_args: Optional[Dict] = None, **kwargs) -> OT:
 
         """
@@ -108,7 +110,6 @@ class BaseNode(BaseModel):
         self.executed = True
 
         if self.aggregator:
-
             current_run_count = self.state_store.get_property_for_node(self.name, 'actual')
             print(f"Current run count: {current_run_count}")
 
@@ -118,30 +119,35 @@ class BaseNode(BaseModel):
             if current_run_count is None:
                 current_run_count = 0
             print(f"Current run count: {current_run_count}")
-            self.state_store.set_property_for_node(self.name, 'actual', current_run_count + 1)
-            current_run_count = self.state_store.get_property_for_node(self.name, 'actual')
+            current_run_count += 1
+            self.state_store.set_property_for_node(self.name, 'actual', current_run_count)  # Update the state store
 
-            # The current_run_count value is NOT update automatically as this is a primitive and not a pointer.
-            if current_run_count == 0:
-                print(f"First time aggregator ran... set node output data to {[node_output]}")
-                self.output_data = [node_output]
-            elif isinstance(expected_run_count, int) \
-                    and isinstance(current_run_count, int) \
-                    and current_run_count < expected_run_count:
-                print(f"Aggregator has run fewer times than expected... continue to aggregate")
-                self.output_data.append(node_output)
+            if isinstance(expected_run_count, int):
+                if current_run_count <= expected_run_count:
+                    if current_run_count == 1:
+                        print(f"First time aggregator ran - toss results into a list")
+                        self.output_data = [node_output]
+                    elif current_run_count > 1:
+                        print(f"Aggregator has run fewer times than expected... continue to aggregate")
+                        self.output_data.append(node_output)
+                else:
+                    print(f"Current run count {current_run_count} greater than expected run count {expected_run_count}!")
+            else:
+                raise ValueError(f"expected_run_count is not an integer! "
+                                 f"It's ({type(expected_run_count)}): {expected_run_count}")
         else:
             self.output_data = node_output
 
             if self.for_each_start_node:
-                print(f'Node {self.name} starts for each... calculate output iterations expected to {len(self.output_data)}')
+                print(
+                    f'Node {self.name} starts for each... calculate output iterations expected to {len(self.output_data)}')
                 loop_end_node_id = self.state_store.cycle_start_id_ends_at_id(self.name)
                 print(f"Cycle should end at {loop_end_node_id}")
                 self.state_store.set_property_for_node(self.name, 'expected', len(self.output_data))
                 self.state_store.set_property_for_node(loop_end_node_id, 'expected', len(self.output_data))
+                print(f"State store cycle lookup: {self.state_store.dump_cycle_end_node_lookup()}")
                 print(f"State store expected value: {self.state_store.dump_store()}")
 
-            # If there is a handle_function_completion_signal... pass outputs to it.
             if self.handle_function_completion_signal is not None:
                 self.handle_function_completion_signal(node_output)
 

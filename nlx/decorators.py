@@ -57,8 +57,10 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
     data or conditions.
     """
 
+    # If we didn't purposefully overrride the state store (for whatever reason), use the same instance that's registered
+    # for the tree.
     if state_store is None:
-        state_store = InMemoryStateStore()
+        state_store = execution_tree.state_store
 
     def node_decorator(
             name: Optional[str] = None,

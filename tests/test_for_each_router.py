@@ -1,5 +1,5 @@
 import unittest
-from typing import List
+from typing import List, Tuple
 
 from nlx.decorators import node_for_tree
 from nlx.stores import StateStore, InMemoryStateStore
@@ -15,17 +15,26 @@ class TestForEachRouting(unittest.TestCase):
         def start_node(items: List[int], **kwargs) -> List[int]:
             return items
 
-        @node(next_nodes='aggregate_results')
+        def router(item: int) -> str:
+            if item == 4:
+                return "nested_cycle"
+            return "aggregate_results"
+
+        @node(next_nodes=router, func_router_possible_node_annot=['nested_cycles', 'aggregate_results'])
         def process_item(item: int, **kwargs) -> int:
             return item * 2
 
-        @node(next_nodes=('FOR_EACH', 'process_item'), aggregator=True)
-        def aggregate_results(results: List[int], **kwargs) -> List[int]:
+        @node(next_nodes='process_item')
+        def nested_cycles(input: int) -> int:
+            return input
+
+        @node(aggregator=True)
+        def aggregate_results(results: int, **kwargs) -> int:
             return results
 
         with self.assertRaises(ValueError) as cm:
             tree.compile(type_checking=True)
-        self.assertEqual(str(cm.exception), "Nested cycles are not allowed.")
+        self.assertEqual(str(cm.exception), "For_each node process_item is inside a cycle.")
 
     def test_set_up_state_store(self):
         tree = ExecutionTree()
@@ -40,7 +49,7 @@ class TestForEachRouting(unittest.TestCase):
             return item * 2
 
         @node(aggregator=True)
-        def aggregate_results(results: List[int], **kwargs) -> List[int]:
+        def aggregate_results(results: int, **kwargs) -> int:
             return results
 
         tree.compile(type_checking=True)
@@ -61,12 +70,12 @@ class TestForEachRouting(unittest.TestCase):
             return item * 2
 
         @node(aggregator=True)
-        def aggregate_results(results: List[int], **kwargs) -> List[int]:
+        def aggregate_results(results: int, **kwargs) -> int:
             return results
 
         tree.compile(type_checking=True)
         tree.run([1, 2, 3])
-        self.assertEqual(tree.state_store['start_node']['actual'], 3)
+        self.assertEqual(tree.state_store.dump_store()['aggregate_results']['actual'], 3)
 
     def test_aggregate_results(self):
         tree = ExecutionTree()
@@ -81,7 +90,7 @@ class TestForEachRouting(unittest.TestCase):
             return item * 2
 
         @node(aggregator=True)
-        def aggregate_results(results: int, **kwargs) -> List[int]:
+        def aggregate_results(results: int, **kwargs) -> int:
             return results
 
         tree.compile(type_checking=True)
@@ -89,6 +98,9 @@ class TestForEachRouting(unittest.TestCase):
         self.assertEqual(tree.get_node('aggregate_results').output_data, [2, 4, 6])
 
     def test_iteration_mismatch(self):
+
+        # TODO - not 100% sure why this is failing...
+
         tree = ExecutionTree()
         state_store = InMemoryStateStore()
         node = node_for_tree(tree, state_store)
@@ -102,11 +114,11 @@ class TestForEachRouting(unittest.TestCase):
             return item * 2
 
         @node(aggregator=True)
-        def aggregate_results(results: List[int], **kwargs) -> List[int]:
+        def aggregate_results(results: int, **kwargs) -> int:
             return results
 
         tree.compile(type_checking=True)
-        tree.state_store['start_node']['expected'] = 5
+        tree.state_store.set_property_for_node('start_node', 'expected', 5)
         with self.assertRaises(ValueError) as cm:
             tree.run([1, 2, 3])
         self.assertIn("Mismatch in iterations for cycle starting with node start_node", str(cm.exception))
@@ -124,12 +136,131 @@ class TestForEachRouting(unittest.TestCase):
             return str(item)
 
         @node(aggregator=True)
-        def aggregate_results(results: List[str], **kwargs) -> List[str]:
+        def aggregate_results(results: str, **kwargs) -> str:
             return results
 
         with self.assertRaises(ValueError) as cm:
             tree.compile(type_checking=True)
         self.assertIn("Mismatched input between output", str(cm.exception))
+
+    def test_correct_typing_single_value(self):
+        tree = ExecutionTree()
+        node = node_for_tree(tree)
+
+        @node(start_node=True, next_nodes=('FOR_EACH', 'process_item'))
+        def start_node(items: List[int], **kwargs) -> List[int]:
+            return items
+
+        @node(next_nodes='aggregate_results')
+        def process_item(item: int, **kwargs) -> int:
+            return item * 2
+
+        # TODO - this syntax looks weird because unpack you'd expect a list output but in fact here the function
+        # returns a single int BUT since it's an aggregator, it's actually returning a list which is unpacked by default
+        @node(aggregator=True, next_nodes='handle_results', unpack_output=False)
+        def aggregate_results(result: int, **kwargs) -> int:
+            return result
+
+        @node()
+        def handle_results(results: List[int], **kwargs) -> int:
+            return sum(results)
+
+        tree.compile(type_checking=True)
+        result = tree.run([1, 2, 3])
+        self.assertEqual(result, 12)
+
+    def test_correct_typing_tuple(self):
+        tree = ExecutionTree()
+        node = node_for_tree(tree)
+
+        @node(start_node=True, next_nodes=('FOR_EACH', 'process_item'), unpack_output=False)
+        def start_node(items: List[int], **kwargs) -> List[int]:
+            return items
+
+        @node(next_nodes='aggregate_results', unpack_output=False)
+        def process_item(item: int, **kwargs) -> Tuple[int, str]:
+            return item * 2, str(item)
+
+        @node(aggregator=True, next_nodes='handle_results', unpack_output=False)
+        def aggregate_results(result: Tuple[int, str], **kwargs) -> Tuple[int, str]:
+            return result
+
+        @node()
+        def handle_results(results: List[Tuple[int, str]], **kwargs) -> str:
+            return ', '.join(str(x[0]) + ': ' + x[1] for x in results)
+
+        tree.compile(type_checking=True)
+        result = tree.run([1, 2, 3])
+        self.assertEqual(result, '2: 1, 4: 2, 6: 3')
+
+    def test_incorrect_typing_single_value(self):
+        tree = ExecutionTree()
+        node = node_for_tree(tree)
+
+        @node(start_node=True, next_nodes=('FOR_EACH', 'process_item'))
+        def start_node(items: List[int], **kwargs) -> List[int]:
+            return items
+
+        @node(next_nodes='aggregate_results')
+        def process_item(item: int, **kwargs) -> int:
+            return item * 2
+
+        @node(aggregator=True, next_nodes='handle_results')
+        def aggregate_results(result: int, **kwargs) -> int:
+            return result
+
+        @node()
+        def handle_results(results: int, **kwargs) -> int:
+            return results
+
+        with self.assertRaises(ValueError):
+            tree.compile(type_checking=True)
+
+    def test_incorrect_typing_tuple(self):
+        tree = ExecutionTree()
+        node = node_for_tree(tree)
+
+        @node(start_node=True, next_nodes=('FOR_EACH', 'process_item'))
+        def start_node(items: List[int], **kwargs) -> List[int]:
+            return items
+
+        @node(next_nodes='aggregate_results')
+        def process_item(item: int, **kwargs) -> Tuple[int, str]:
+            return item * 2, str(item)
+
+        @node(aggregator=True, next_nodes='handle_results')
+        def aggregate_results(result: Tuple[int, str], **kwargs) -> Tuple[int, str]:
+            return result
+
+        @node()
+        def handle_results(results: List[int], **kwargs) -> int:
+            return sum(results)
+
+        with self.assertRaises(ValueError):
+            tree.compile(type_checking=True)
+
+    def test_incorrect_typing_list(self):
+        tree = ExecutionTree()
+        node = node_for_tree(tree)
+
+        @node(start_node=True, next_nodes=('FOR_EACH', 'process_item'))
+        def start_node(items: List[int], **kwargs) -> List[int]:
+            return items
+
+        @node(next_nodes='aggregate_results')
+        def process_item(item: int, **kwargs) -> List[int]:
+            return [item * 2]
+
+        @node(aggregator=True, next_nodes='handle_results')
+        def aggregate_results(result: List[int], **kwargs) -> List[int]:
+            return result
+
+        @node()
+        def handle_results(results: List[List[int]], **kwargs) -> int:
+            return sum(sum(x) for x in results)
+
+        with self.assertRaises(ValueError):
+            tree.compile(type_checking=True)
 
 
 if __name__ == '__main__':

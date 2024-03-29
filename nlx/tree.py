@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, UUID4, ConfigDict
 from nlx.nodes import BaseNode
 from nlx.stores import StateStore, InMemoryStateStore
 from nlx.types import OT, SpecialTypes
-from nlx.utils import match_types
+from nlx.utils import match_types, find_cycles_and_for_each_paths
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -69,6 +69,10 @@ class ExecutionTree(BaseModel):
     class Config:
         arbitrary_types_allowed = True  # Allow arbitrary types
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        print(f"ExecutionTree state store address: {id(self.state_store)}")
+
     @property
     def root(self) -> Optional[BaseNode]:
         """
@@ -83,6 +87,13 @@ class ExecutionTree(BaseModel):
         if self.root_node_id is not None:
             return self.nodes[self.node_names[self.root_node_id]]
         return None
+
+    @property
+    def root_node_name(self) -> Optional[str]:
+        if self.root_node_id in self.node_names:
+            return self.node_names[self.root_node_id]
+        else:
+            return None
 
     def handle_output(self, *args):
         """
@@ -276,7 +287,8 @@ class ExecutionTree(BaseModel):
                         match_types(
                             node.output_type,
                             target_node.execute_function,
-                            unpack_output=node.unpack_output
+                            unpack_output=node.unpack_output,
+                            aggregator=node.aggregator
                         )
 
                     self._add_static_route(node_name, node.route)
@@ -292,7 +304,8 @@ class ExecutionTree(BaseModel):
                             node.output_type,
                             target_node.execute_function,
                             unpack_output=node.unpack_output,
-                            for_each_loop=True
+                            for_each_loop=True,
+                            aggregator=node.aggregator
                         )
                         print("Type checking passed!")
                     self._add_for_each_route(node_name, node.route)
@@ -313,7 +326,8 @@ class ExecutionTree(BaseModel):
                             match_types(
                                 node.output_type,
                                 target_node.execute_function,
-                                unpack_output=node.unpack_output
+                                unpack_output=node.unpack_output,
+                                aggregator=node.aggregator
                             )
 
                     self._add_functional_route(node_name, node.route, node.func_router_possible_node_annot)
@@ -331,7 +345,8 @@ class ExecutionTree(BaseModel):
                     match_types(
                         node.output_type,
                         target_node.execute_function,
-                        unpack_output=node.unpack_output
+                        unpack_output=node.unpack_output,
+                        aggregator=node.aggregator
                     )
 
                 self._add_direct_route(node_name, node.route)
@@ -341,7 +356,14 @@ class ExecutionTree(BaseModel):
 
         # Check there are NO nested cycles and setup state store for FOR_EACH cycles.
         if self.allow_cycles:
-            for_each_cycles = self._validate_cycles(self.generate_nx_digraph(ignore_compile_flag=True))
+
+            digraph = self.generate_nx_digraph(ignore_compile_flag=True)
+            print(f"Compiling digraph: {digraph.nodes}")
+            cycles, for_each_cycles = find_cycles_and_for_each_paths(
+                digraph,
+                self.root_node_name
+            )
+
             print(f"For each cycles: {for_each_cycles}")
 
             # Populate state store with iteration counts.
@@ -367,7 +389,8 @@ class ExecutionTree(BaseModel):
                     0
                 )
                 print(f"Register cycle in state store {cycle[0]} / {cycle[len(cycle)-1]}")
-                self.state_store.register_cyclefind_cycles_and_for_each_paths(cycle[0], cycle[len(cycle)-1])
+                self.state_store.register_cycle(cycle[0], cycle[len(cycle)-1])
+                print(f"Post registration store: {self.state_store.dump_cycle_end_node_lookup()}")
             self.for_each_cycles = for_each_cycles
         else:
             if self.has_cycle:
@@ -668,7 +691,7 @@ class ExecutionTree(BaseModel):
         for name, node in self.nodes.items():
             logger.debug(f"generate_graph() - Add node {name}")
             logger.debug(f"\t...to return to link route (type {type(node.route)}): {node.route}")
-            G.add_node(name, for_each=node.for_each_start_node, aggregate=node.aggregator)
+            G.add_node(name, for_each=node.for_each_start_node, aggregator=node.aggregator)
 
         for name, node in self.nodes.items():
             if isinstance(node.route, list):
