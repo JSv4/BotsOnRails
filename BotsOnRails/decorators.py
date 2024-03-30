@@ -2,9 +2,9 @@ import logging
 from functools import wraps
 from typing import Optional, Callable, Dict, get_type_hints, List, NoReturn, Type, Literal, Tuple
 
-from nlx.nodes import BaseNode
-from nlx.stores import InMemoryStateStore, StateStore
-from nlx.types import OT
+from BotsOnRails.nodes import BaseNode
+from BotsOnRails.stores import InMemoryStateStore, StateStore
+from BotsOnRails.types import OT
 
 logger = logging.getLogger(__name__)
 

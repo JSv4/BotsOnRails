@@ -5,9 +5,9 @@ from typing import Type, Optional, List, Callable, Dict, NoReturn, Any, Literal
 from pydantic import BaseModel, UUID4, Field, field_validator, field_serializer, ConfigDict
 from pydantic_core.core_schema import FieldValidationInfo
 
-from nlx.stores import StateStore
-from nlx.types import IT, OT, SpecialTypes
-from nlx.utils import is_iterable_of_primitives
+from BotsOnRails.stores import StateStore
+from BotsOnRails.types import IT, OT, SpecialTypes
+from BotsOnRails.utils import is_iterable_of_primitives
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,8 @@
 import unittest
 from typing import Tuple, Optional, List, Union, NoReturn, Dict, Callable
 
-from nlx.decorators import node_for_tree
-from nlx.tree import ExecutionTree
+from BotsOnRails.decorators import node_for_tree
+from BotsOnRails.tree import ExecutionTree
 
 
 class TestTypeChecking(unittest.TestCase):

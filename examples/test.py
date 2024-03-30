@@ -5,8 +5,8 @@ from typing import NoReturn, Optional, Tuple
 from rich.console import Console
 from rich.panel import Panel
 
-from nlx.decorators import node_for_tree
-from nlx.tree import ExecutionTree
+from BotsOnRails.decorators import node_for_tree
+from BotsOnRails.tree import ExecutionTree
 from faker import Faker
 
 tree = ExecutionTree()

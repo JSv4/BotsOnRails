@@ -1,10 +1,10 @@
 import unittest
 from typing import Tuple, Optional, List, Union, NoReturn, Dict, Callable
 
-import nlx
+import BotsOnRails
 
-from nlx.decorators import node_for_tree
-from nlx.tree import ExecutionTree
+from BotsOnRails.decorators import node_for_tree
+from BotsOnRails.tree import ExecutionTree
 
 
 class TestTreeValidations(unittest.TestCase):
@@ -101,10 +101,10 @@ class TestTreeValidations(unittest.TestCase):
         def a(val: str, **kwargs) -> str:
             return val
 
-        with self.assertLogs(nlx.tree.__name__, level='WARNING') as cm:
+        with self.assertLogs(BotsOnRails.tree.__name__, level='WARNING') as cm:
             tree.run("Hello")
 
-        self.assertEqual(cm.output, [f'WARNING:{nlx.tree.__name__}:You must call .compile() after adding the last '
+        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.tree.__name__}:You must call .compile() after adding the last '
                                      f'node before you can use the Execution Tree. Calling it for you!',
                                      ])
 
@@ -116,11 +116,11 @@ class TestTreeValidations(unittest.TestCase):
         def a(val: str, **kwargs) -> str:
             return val
 
-        with self.assertLogs(nlx.tree.__name__, level='WARNING') as cm:
+        with self.assertLogs(BotsOnRails.tree.__name__, level='WARNING') as cm:
             result = tree.run_from_node("a", override_output="Goodbye")
 
         self.assertEqual(result, "Goodbye")
-        self.assertEqual(cm.output, [f'WARNING:{nlx.tree.__name__}:You must call .compile() after adding the last '
+        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.tree.__name__}:You must call .compile() after adding the last '
                                      f'node before you can use the Execution Tree. Calling it for you!',
                                      ])
 

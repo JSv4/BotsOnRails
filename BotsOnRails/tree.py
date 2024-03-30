@@ -10,10 +10,10 @@ from networkx.drawing.nx_pydot import graphviz_layout
 
 from pydantic import BaseModel, Field, UUID4, ConfigDict
 
-from nlx.nodes import BaseNode
-from nlx.stores import StateStore, InMemoryStateStore
-from nlx.types import OT, SpecialTypes
-from nlx.utils import match_types, find_cycles_and_for_each_paths
+from BotsOnRails.nodes import BaseNode
+from BotsOnRails.stores import StateStore, InMemoryStateStore
+from BotsOnRails.types import OT, SpecialTypes
+from BotsOnRails.utils import match_types, find_cycles_and_for_each_paths
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

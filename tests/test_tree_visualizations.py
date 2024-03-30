@@ -5,10 +5,10 @@ import unittest
 from pathlib import Path
 from typing import Tuple, Optional, List, Union, NoReturn, Dict, Callable
 
-import nlx
+import BotsOnRails
 
-from nlx.decorators import node_for_tree
-from nlx.tree import ExecutionTree
+from BotsOnRails.decorators import node_for_tree
+from BotsOnRails.tree import ExecutionTree
 
 fixture_dir = Path(__file__).parent / 'fixtures'
 visualizations_dir = fixture_dir / "visualizations"
@@ -50,7 +50,7 @@ class TestTreeValidations(unittest.TestCase):
 
         self.tree.compiled = False
 
-        with self.assertLogs(nlx.tree.__name__, level='WARNING') as cm:
+        with self.assertLogs(BotsOnRails.tree.__name__, level='WARNING') as cm:
             with tempfile.TemporaryDirectory() as tmpdirname:
                 target_file_path = (Path(tmpdirname) / nx_filename).__str__()
                 self.tree.visualize_via_nx(
@@ -60,7 +60,7 @@ class TestTreeValidations(unittest.TestCase):
                     open(target_file_path, "rb").read(),
                     open((visualizations_dir / nx_filename).__str__(), "rb").read()
                 )
-        self.assertEqual(cm.output, [f'WARNING:{nlx.tree.__name__}:You must call .compile() after adding the '
+        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.tree.__name__}:You must call .compile() after adding the '
                                      f'last node before you can visualize the Execution Tree. Calling it for you!',
                                      ])
 
@@ -69,7 +69,7 @@ class TestTreeValidations(unittest.TestCase):
         self.tree._clear_execution_state()
         self.tree.compiled = False
 
-        with self.assertLogs(nlx.tree.__name__, level='WARNING') as cm:
+        with self.assertLogs(BotsOnRails.tree.__name__, level='WARNING') as cm:
             self.assertEqual(
                 self.tree.generate_mermaid_diagram(),
                 None
@@ -95,7 +95,7 @@ class TestTreeValidations(unittest.TestCase):
                 diagram,
                 halted_execution_diagram
             )
-        self.assertEqual(cm.output, [f'WARNING:{nlx.tree.__name__}:You must call .compile() after adding the '
+        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.tree.__name__}:You must call .compile() after adding the '
                                      f'last node before you can visualize the Execution Tree. Calling it for you!',
                                      ])
 
