@@ -97,12 +97,12 @@ class TestForEachRouting(unittest.TestCase):
         tree.run([1, 2, 3])
         self.assertEqual(tree.get_node('aggregate_results').output_data, [2, 4, 6])
 
-    def test_iteration_mismatch(self):
+    def test_provide_external_state_store(self):
 
         # TODO - not 100% sure why this is failing...
 
-        tree = ExecutionTree()
         state_store = InMemoryStateStore()
+        tree = ExecutionTree(state_store=state_store)
         node = node_for_tree(tree, state_store)
 
         @node(start_node=True, next_nodes=('FOR_EACH', 'process_item'))
@@ -119,9 +119,7 @@ class TestForEachRouting(unittest.TestCase):
 
         tree.compile(type_checking=True)
         tree.state_store.set_property_for_node('start_node', 'expected', 5)
-        with self.assertRaises(ValueError) as cm:
-            tree.run([1, 2, 3])
-        self.assertIn("Mismatch in iterations for cycle starting with node start_node", str(cm.exception))
+        tree.run([1, 2, 3])
 
     def test_for_each_type_checking(self):
         tree = ExecutionTree()

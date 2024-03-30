@@ -111,10 +111,10 @@ class BaseNode(BaseModel):
 
         if self.aggregator:
             current_run_count = self.state_store.get_property_for_node(self.name, 'actual')
-            print(f"Current run count: {current_run_count}")
+            print(f"Current run count for node {self.name}: {current_run_count}")
 
             expected_run_count = self.state_store.get_property_for_node(self.name, 'expected')
-            print(f"Expected run count: {expected_run_count}")
+            print(f"Expected run count for node {self.name}: {expected_run_count}")
 
             if current_run_count is None:
                 current_run_count = 0
@@ -141,6 +141,7 @@ class BaseNode(BaseModel):
             if self.for_each_start_node:
                 print(
                     f'Node {self.name} starts for each... calculate output iterations expected to {len(self.output_data)}')
+                print(f"Cycle lookup: {self.state_store.dump_cycle_end_node_lookup()}")
                 loop_end_node_id = self.state_store.cycle_start_id_ends_at_id(self.name)
                 print(f"Cycle should end at {loop_end_node_id}")
                 self.state_store.set_property_for_node(self.name, 'expected', len(self.output_data))
