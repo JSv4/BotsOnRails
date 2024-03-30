@@ -1,8 +1,10 @@
 import inspect
+import itertools
 import json
 import logging
 import uuid
-from typing import Any, Callable, get_type_hints, NoReturn, List, get_origin, Union, get_args, Tuple
+import networkx as nx
+from typing import Any, Callable, get_type_hints, NoReturn, List, get_origin, Union, get_args, Tuple, _GenericAlias
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +142,9 @@ def type_allowed_under_optional_annot(type_annot, annotation) -> bool:
 def match_types(
         previous_func_output: Any,
         next_function: Callable,
-        unpack_output: bool = True
+        unpack_output: bool = True,
+        for_each_loop: bool = False,
+        aggregator: bool = False,
 ):
     """
     Checks if the output of a function A is iterable, has the same count as the number of positional
@@ -168,22 +172,51 @@ def match_types(
 
     # Extract argument types for function B
     input_params = get_type_hints(next_function)
+    print(f"Input params for next function {next_function.__name__}: {input_params}")
     input_signature_params = inspect.signature(next_function).parameters
     input_params.pop('return')  # We don't want return type on the input annotation hint
     annot = get_origin(previous_func_output)
+    print(f"Previous function annot origin: {annot}")
+    print(f"This is unpackable: {unpackable_annotation(get_origin(previous_func_output))}")
 
-    if not unpackable_annotation(get_origin(previous_func_output)):
+    if aggregator:
+        print("Node is an aggregator...")
+        print(f"input param: {list(input_params.values())[0]}")
+        input_param_type = list(input_params.values())
+        if len(input_param_type) != 1:
+           raise ValueError(f"Function {next_function.__name__} following an aggregator node expects multiple inputs"
+                            f"but we only support 1 - a list.")
+        elif isinstance(input_param_type[0], _GenericAlias):
+                if input_param_type[0].__origin__ not in (list, tuple):
+                    raise ValueError(
+                        f"Function following an aggregator should expect a single input tuple or list, not "
+                        f"{input_param_type}")
+        elif not isinstance(input_param_type[0], (tuple, list, Tuple, List)):
+            raise ValueError(f"Function following an aggregator should expect a single input tuple or list, not "
+                             f"{type(input_param_type[0])}")
+
+        elif previous_func_output != unpack_annotation(input_param_type[0])[0]:
+            raise ValueError(f"Function following an aggregator should expect a single list or tuple with inner type "
+                             f"composed the type output signature of the aggregator function - e.g. if aggregator "
+                             f"returns int, next function should expect list[int] or tuple[int]. Your aggregator "
+                             f"returns {previous_func_output} and next function expects"
+                             f" {unpack_annotation(input_param_type[0])[0]}")
+        else:
+            print(f"Typing handoff from aggregator to next function is good.")
+
+    elif not unpackable_annotation(get_origin(previous_func_output)):
+        print(f"Output annot is NOT unpackable")
         if previous_func_output == NoReturn:
             if input_params == {}:
                 pass  # no actual inputs
-            elif len(input_params.items()) != 0:
+            elif len(input_params.values()) != 0:
                 raise ValueError(
                     f"Function preceding {next_function.__name__} has return type of NoReturn yet function "
                     f"expects inputs of {type(input_params)}")
         elif 'args' in input_signature_params:
             # If we have *args in next function, we're cool with any positional arguments.
             pass
-        elif len(input_params.items()) == 1:
+        elif len(input_params.values()) == 1:
             if previous_func_output != list(input_params.values())[0]:
                 raise ValueError(f"Mismatched input between output ({previous_func_output}) and next input "
                                  f"({list(input_params.values())[0]})")
@@ -194,36 +227,52 @@ def match_types(
             else:
                 raise ValueError(f"Return type is not an iterable (and single, unpackable value), yet next function "
                                  f"expects multiple positional args - {input_params} {input_params.values()}")
+    elif for_each_loop:
+
+        print("This is a for_each loop!")
+        contents_of_iterable = unpack_annotation(previous_func_output)
+
+        if len(input_params.items()) == 1:
+            if contents_of_iterable[0] != list(input_params.values())[0]:
+                raise ValueError(f"for_each_loop - Mismatched input between output ({previous_func_output} and next input "
+                                 f"({list(input_params.values())[0]}). YOU ARE USING FLAG unpack_output.")
+        else:
+            raise ValueError(f"Return type is an iterable, and you want to loop over each of its constituent elements."
+                             f"We check that the constituent parts of the list or tuple are what's expected as an input"
+                             f"for the next function, but it expects multiple inputs.")
+
+        print(f"For_each loop typing works! Each {contents_of_iterable[0]} in list can be passed as input to function "
+              f"expecting {list(input_params.values())[0]}")
     elif not unpack_output:
+        print(f"DO NOT unpack output...")
         if len(input_params.items()) == 1:
             if previous_func_output != list(input_params.values())[0]:
                 raise ValueError(f"Mismatched input between output ({previous_func_output} and next input "
-                                 f"({list(input_params.values())[0]}). YOU ARE USING FLAG unpack_output.")
+                                 f"({list(input_params.values())[0]}). YOU ARE NOT USING FLAG unpack_output.")
         else:
             raise ValueError(f"Return type is an iterable, but you explicitly instructed us not to unpack it (with "
                              f"unpack_output=False), yet next function expects"
                              f"multiple positional args - {input_params.values()}. Did you mean to set "
                              f"unpack_output=True?")
     else:
-        logger.debug(f"Output of preceding function is a complex type that can iterate: {previous_func_output}")
+        print(f"Output of preceding function is a complex type that can iterate: {previous_func_output}")
         next_func_input_types = list(input_params.values())
-        logger.debug(f"Function {next_function.__name__} expects input of {next_func_input_types}")
+        print(f"Function {next_function.__name__} expects input of {next_func_input_types}")
         prev_f_unpacked_annot = unpack_annotation(previous_func_output)
 
-        # We have a couple different cases to handle here
-        # 1) We have an output iterable with more constituent members than positional args in next function (that's an
-        # error) UNLESS there's an *args parameter
         if len(prev_f_unpacked_annot) > len(next_func_input_types) and 'args' not in input_signature_params:
-            raise ValueError(f"Function {next_function.__name__} is going to receive too many positional arguments: "
-                             f"{prev_f_unpacked_annot}")
+            raise ValueError(
+                f"Function {next_function.__name__} is going to receive too many positional arguments: "
+                f"{prev_f_unpacked_annot}")
 
         # 2) The output iterable has exactly same # of constituent members as inputs, in which case we need to check
         # annotations are same.
         if len(prev_f_unpacked_annot) == len(next_func_input_types):
             for index, (out_type, b_arg_type) in enumerate(zip(prev_f_unpacked_annot, next_func_input_types)):
                 if out_type != b_arg_type:
-                    raise ValueError(f"Mismatch in input iterable @ pos {index} to {next_function.__name__} - output "
-                                     f"type {out_type} != {b_arg_type} ")
+                    raise ValueError(
+                        f"Mismatch in input iterable @ pos {index} to {next_function.__name__} - output "
+                        f"type {out_type} != {b_arg_type} ")
 
         # 3) We have an output iterable with fewer constituent members than input, in which case this CAN be valid IF
         # we have a) more than enough values for non-optional values and b) any remaining values have same type as
@@ -240,8 +289,9 @@ def match_types(
                 if next_func_input_types[index] == opt_inp:
                     pass
                 elif not type_allowed_under_optional_annot(opt_inp, next_func_input_types[index]):
-                    raise ValueError(f"Positional argument # {index} for function {next_function.__name__} is Union "
-                                     f"({next_func_input_types[index]}) but doesn't allow type {opt_inp}")
+                    raise ValueError(
+                        f"Positional argument # {index} for function {next_function.__name__} is Union "
+                        f"({next_func_input_types[index]}) but doesn't allow type {opt_inp}")
 
 
 def is_iterable_of_primitives(value: Any) -> bool:
@@ -255,3 +305,98 @@ def is_iterable_of_primitives(value: Any) -> bool:
     """
     # Check if the value is an iterable but not a string/bytes/bytearray
     return isinstance(value, (tuple, list)) and not isinstance(value, (str, bytes, bytearray))
+
+
+def find_cycles_and_for_each_paths(graph, root_node_id: Any):
+    cycles = list(nx.simple_cycles(graph))
+
+    logger.debug(f"Checking for nested cycles in {cycles}")
+    for i in range(len(cycles)):
+        for j in range(i + 1, len(cycles)):
+            logger.debug(f"Comparing cycle {cycles[i]} with cycle {cycles[j]}")
+            if set(cycles[i]).issubset(cycles[j]) or set(cycles[j]).issubset(cycles[i]):
+                logger.error("Nested cycles are not allowed.")
+                raise ValueError("Nested cycles are not allowed.")
+
+    cycle_nodes = list(itertools.chain.from_iterable(cycles))
+    print(f"* find_cycles_and_for_each_paths - cycles: {cycles}")
+    print(f"** Cycle nodes: {cycle_nodes}")
+    for_each_paths = []
+
+    # def dfs(node, path, visited):
+    #     print(f"dfs - node {node} / path {path} / visited {visited}")
+    #     if node in visited:
+    #         return
+    #     visited.add(node)
+    #     path.append(node)
+    #
+    #     for_each_nodes = graph.nodes[node].get('for_each', False)
+    #     print(f"\tIs for_each nodes: {for_each_nodes}")
+    #
+    #     if graph.nodes[node].get('for_each', False):
+    #         if node in cycle_nodes:
+    #             raise ValueError(f"For_each node {node} is inside a cycle.")
+    #         for neighbor in graph.successors(node):
+    #             is_aggregator = graph.nodes[neighbor].get('aggregator', False)
+    #             print(f"\tProcess neighbor: {neighbor} - is_aggregator: {is_aggregator}")
+    #             if is_aggregator:
+    #                 for_each_paths.append((node, neighbor))
+    #                 return
+    #             elif graph.out_degree(neighbor) > 1:
+    #                 raise ValueError(f"Encountered a branch at node {neighbor} while traversing from for_each node {node}.")
+    #             else:
+    #                 dfs(neighbor, path, visited)
+    #         raise ValueError(f"No aggregator node found for for_each node {node}.")
+    #
+    #     for neighbor in graph.successors(node):
+    #         dfs(neighbor, path, visited)
+
+    # visited = set()
+    # # Look for for_each nodes
+    # for node in graph.nodes:
+    #     print(f"Process node {node} in graph.nodes")
+    #     if graph.in_degree(node) == 0:  # Start traversal from root nodes
+    #         dfs(node, [], visited)
+
+    def dfs(node_id, path, for_each_start_id, visited):
+
+        print(f"Analyze node {node_id} with path {path} for each {for_each_start_id} - visited: {visited}")
+        print(f"\tAttributes: { graph.nodes[node_id]}")
+
+        if node_id in visited:
+            return
+        visited.add(node_id)
+
+        path.append(node_id)
+
+        if graph.nodes[node_id].get('for_each', False):
+            print(f"Node {node_id} is for_each")
+            for_each_start_id = node_id
+
+        if node_id in cycle_nodes and for_each_start_id is not None:
+            raise ValueError(f"For_each node {node_id} is inside a cycle.")
+
+        if graph.nodes[node_id].get('aggregator', False) and for_each_start_id is not None:
+            print(f"{node_id} is aggregator and for in for_each loop... append {path}")
+            for_each_paths.append((for_each_start_id, node_id))
+            for_each_start_id = None
+
+        if graph.out_degree(node_id) > 1 and for_each_start_id is not None:
+            raise ValueError(f"Encountered a branch at node {node_id} while traversing from for_each node starting at {node_id}")
+
+        successor_nodes = list(graph.successors(node_id))
+        print(f"Successor nodes: {successor_nodes}")
+        if len(successor_nodes) == 0 and for_each_start_id is not None:
+            raise ValueError(f"No aggregator node found for for_each branch starting at {for_each_start_id}")
+        else:
+            for neighbor in graph.successors(node_id):
+                dfs(neighbor, path, for_each_start_id, visited)
+
+        path.pop()
+
+    visited = set()
+    dfs(root_node_id, [], None, visited)
+
+    cycle_tuples = [(cycle[0], cycle[-1]) for cycle in cycles]
+    print(f"*** Cycle tuples: {cycle_tuples}")
+    return cycle_tuples, for_each_paths

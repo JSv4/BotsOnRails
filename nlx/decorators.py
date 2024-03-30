@@ -1,14 +1,15 @@
 import logging
 from functools import wraps
-from typing import Optional, Callable, Dict, get_type_hints, List, NoReturn, Type, Literal
+from typing import Optional, Callable, Dict, get_type_hints, List, NoReturn, Type, Literal, Tuple
 
 from nlx.nodes import BaseNode
+from nlx.stores import InMemoryStateStore, StateStore
 from nlx.types import OT
 
 logger = logging.getLogger(__name__)
 
 
-def node_for_tree(execution_tree):
+def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
     """
     A decorator factory that creates a decorator for registering functions as nodes in a specified execution tree.
 
@@ -56,13 +57,19 @@ def node_for_tree(execution_tree):
     data or conditions.
     """
 
+    # If we didn't purposefully overrride the state store (for whatever reason), use the same instance that's registered
+    # for the tree.
+    if state_store is None:
+        state_store = execution_tree.state_store
+
     def node_decorator(
             name: Optional[str] = None,
             start_node: bool = False,
             wait_for_approval: bool = False,
             next_nodes: Optional[Callable[[OT], str] | Dict[OT, str] | str | tuple[Literal['FOR_EACH'], str]] = None,
             func_router_possible_node_annot: Optional[List[str]] = None,
-            unpack_output: bool = True
+            unpack_output: bool = True,
+            aggregator: bool = False,
     ):
         def decorator(func):
             nonlocal name
@@ -72,14 +79,16 @@ def node_for_tree(execution_tree):
             # Determine input and output types from annotations
             input_type, output_type = None, None
             type_hints = get_type_hints(func)
+            print(f"Decorating node with name {name}")
             logger.debug(F"Type_hints: {type_hints}")
             if 'return' in type_hints:
-                if 'return' in type_hints:
-                    output_type = type_hints.pop('return', None)
-                    if not isinstance(output_type, (list, tuple)):
-                        if isinstance(next_nodes, tuple):
-                            raise ValueError("You can only use special iteration commands in next_nodes where output "
-                                             "type is a list or tuple!")
+                output_type = type_hints.pop('return', None)
+                print(f"Node {name} output type: {output_type}")
+                print(f"Next_nodes: {next_nodes}")
+                print(f"Is tuple: {isinstance(next_nodes, (tuple, Tuple))}")
+                if isinstance(output_type, (list, tuple, List, Tuple)) and isinstance(next_nodes, (tuple, Tuple)):
+                    raise ValueError("You can only use special iteration commands in next_nodes where output "
+                                     "type is a list or tuple!")
             else:
                 if isinstance(next_nodes, tuple):
                     raise ValueError("You can only use the for_each next node command where output type is annotated")
@@ -95,7 +104,9 @@ def node_for_tree(execution_tree):
                 execute_function=func,
                 route=next_nodes,
                 func_router_possible_node_annot=func_router_possible_node_annot,
-                unpack_output=unpack_output
+                unpack_output=unpack_output,
+                aggregator=aggregator,
+                state_store=state_store
             )
 
             if output_type is not None:

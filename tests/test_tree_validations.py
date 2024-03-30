@@ -30,7 +30,7 @@ class TestTreeValidations(unittest.TestCase):
         Make sure we can't have a true cycle (circular pathways are OK, as long as they go one direction and stop)
         """
 
-        tree = ExecutionTree()
+        tree = ExecutionTree(allow_cycles=False)
         node = node_for_tree(tree)
 
         @node(start_node=True, next_nodes='eating')
@@ -48,7 +48,7 @@ class TestTreeValidations(unittest.TestCase):
         with self.assertRaises(ValueError) as e:
             tree.compile(type_checking=True)
 
-        assert 'we don\'t support circular flows' in str(e.exception)
+        assert 'allow_cycles is set to False but the tree has cycles' in str(e.exception)
 
     def test_add_non_node_as_node(self):
         tree = ExecutionTree()
