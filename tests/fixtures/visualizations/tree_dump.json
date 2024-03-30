@@ -13,6 +13,7 @@
             "input_data": "__NOT_PROVIDED--",
             "input_type": "{}",
             "selected_route": null,
+            "aggregator": false,
             "unpack_output": true
         },
         "b": {
@@ -26,6 +27,7 @@
             "input_data": "__NOT_PROVIDED--",
             "input_type": "{'arg1': <class 'str'>}",
             "selected_route": null,
+            "aggregator": false,
             "unpack_output": true
         },
         "c": {
@@ -39,9 +41,14 @@
             "input_data": "__NOT_PROVIDED--",
             "input_type": "{'arg1': <class 'str'>}",
             "selected_route": null,
+            "aggregator": false,
             "unpack_output": true
         }
     },
     "output": "__NEVER_RAN--",
-    "compiled": false
+    "compiled": false,
+    "allow_cycles": true,
+    "for_each_cycles": [],
+    "for_each_start_node_ids": [],
+    "for_each_end_node_ids": []
 }
