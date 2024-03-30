@@ -1,7 +1,7 @@
 import pytest
 import networkx as nx
 
-from nlx.utils import find_cycles_and_for_each_paths
+from BotsOnRails.utils import find_cycles_and_for_each_paths
 
 
 def test_simple_cycle():

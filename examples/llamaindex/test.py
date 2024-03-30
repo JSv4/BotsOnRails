@@ -16,8 +16,8 @@ from rich.text import Text
 import tika
 from tika import parser
 
-from nlx import ExecutionTree, node_for_tree
-from nlx.types import SpecialTypes
+from BotsOnRails import ExecutionTree, node_for_tree
+from BotsOnRails.types import SpecialTypes
 
 tree = ExecutionTree()
 node = node_for_tree(tree)

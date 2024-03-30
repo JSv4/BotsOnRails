@@ -13,8 +13,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from nlx import ExecutionTree, node_for_tree
-from nlx.types import SpecialTypes
+from BotsOnRails import ExecutionTree, node_for_tree
+from BotsOnRails.types import SpecialTypes
 
 tree = ExecutionTree()
 node = node_for_tree(tree)

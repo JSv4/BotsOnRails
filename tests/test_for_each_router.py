@@ -1,9 +1,9 @@
 import unittest
 from typing import List, Tuple
 
-from nlx.decorators import node_for_tree
-from nlx.stores import StateStore, InMemoryStateStore
-from nlx.tree import ExecutionTree
+from BotsOnRails.decorators import node_for_tree
+from BotsOnRails.stores import StateStore, InMemoryStateStore
+from BotsOnRails.tree import ExecutionTree
 
 
 class TestForEachRouting(unittest.TestCase):
