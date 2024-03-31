@@ -1,0 +1,3 @@
+marvin==2.3.1
+prompt_toolkit
+rich==13.7.1
