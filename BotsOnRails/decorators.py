@@ -79,13 +79,9 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
             # Determine input and output types from annotations
             input_type, output_type = None, None
             type_hints = get_type_hints(func)
-            print(f"Decorating node with name {name}")
             logger.debug(F"Type_hints: {type_hints}")
             if 'return' in type_hints:
                 output_type = type_hints.pop('return', None)
-                print(f"Node {name} output type: {output_type}")
-                print(f"Next_nodes: {next_nodes}")
-                print(f"Is tuple: {isinstance(next_nodes, (tuple, Tuple))}")
                 if isinstance(output_type, (list, tuple, List, Tuple)) and isinstance(next_nodes, (tuple, Tuple)):
                     raise ValueError("You can only use special iteration commands in next_nodes where output "
                                      "type is a list or tuple!")
