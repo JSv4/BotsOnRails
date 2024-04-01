@@ -47,8 +47,10 @@
     },
     "output": "__NEVER_RAN--",
     "compiled": false,
+    "state_store": {},
     "allow_cycles": true,
-    "for_each_cycles": [],
+    "true_cycles": null,
+    "for_each_cycles": null,
     "for_each_start_node_ids": [],
-    "for_each_end_node_ids": []
+    "for_each_end_node_ids": {}
 }
