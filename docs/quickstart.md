@@ -75,12 +75,3 @@ That covers the basic concepts! For more advanced topics, check out:
 - The [Validation Rules](validation.md) to understand the guardrails BotsOnRails provides
 
 Happy bot building!
-
-
-
-for_each_loops.md
-
-
-validation.md
-
-Let me know if you have any other questions!

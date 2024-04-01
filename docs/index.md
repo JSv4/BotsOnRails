@@ -36,7 +36,7 @@ pip install BotsOnRails
 
 Then check out the [Quickstart Guide](quickstart.md) to learn the key concepts. The [Node Syntax Guide](node_syntax.md) dives deeper into how to define nodes and route between them.
 
-One key concept to understand is how BotsOnRails handles looping using its [For Each Syntax](for_each_loops.md). This allows you to dynamically process each element of an iterable in a type-safe way.
+One key concept to understand is how BotsOnRails handles looping using its [For Each Syntax](loops.md). This allows you to dynamically process each element of an iterable in a type-safe way.
 
 BotsOnRails has some [Validation Rules](validation.md) to be aware of that enforce the integrity of your workflow definitions.
 

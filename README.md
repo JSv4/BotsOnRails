@@ -1,16 +1,33 @@
-# BotsOnRails: README / QUICKSTART
+# BotsOnRails
 
-BotsOnRails is a Python library for orchestrating Large Language Models (LLMs) and other functions in a flexible, human-in-the-loop manner. It allows you to build execution trees where nodes represent individual tasks or decision points, with the ability to pause and resume execution based on human input or algorithmic conditions. This makes it ideal for scenarios where you need to integrate human insights and approvals into automated workflows.
+BotsOnRails was born out of a frustration with the challenges of building complex workflows involving large language 
+models (LLMs), human interaction, and custom logic. As LLMs like GPT-3 and GPT-4 have become more powerful and 
+accessible, there's been an explosion of interest in building applications that leverage their capabilities. However, 
+building these applications often requires orchestrating a complex dance between AI-generated content, human review 
+and approval, and custom processing logic.
+
+Existing workflow orchestration tools, while powerful, often feel overly complex and rigid for these kinds of 
+AI-driven workflows. They require a lot of upfront design and don't easily accommodate the kinds of dynamic, 
+human-in-the-loop workflows that are common when working with LLMs.
+
+At the same time, building these workflows from scratch using raw Python code quickly becomes unmanageable. The flow of 
+data and control between different parts of the system becomes hard to follow, and it's easy for subtle bugs and 
+inconsistencies to creep in.
+
+BotsOnRails was created to provide a sweet spot between these two extremes. It offers a simple, flexible, and 
+expressive way to define workflows as trees of nodes, where each node represents a single step or decision point. 
+Crucially, it has first-class support for human interaction, allowing you to easily designate any node as a pause 
+point for human review or approval.
 
 # Key Features:
 
-1. Tree-based orchestration: Define complex workflows as execution trees with nodes representing tasks or decisions.
-2. Human-in-the-loop: Seamlessly integrate human input and approvals into automated workflows.
-3. Dynamic routing: Route execution flow based on runtime data or conditions using functions or static mappings.
-4. Type checking: Ensure type safety and compatibility between nodes for robust execution.
-5. Visualization: Generate visual representations of your execution trees for analysis and debugging.
-6. Resumable execution: Restart or continue execution from specific nodes for iterative review and modification.
-7. Lightweight and flexible: Easy to integrate into existing projects and adapt to various use cases.
+1. **Tree-based orchestration**: Define complex workflows as execution trees with nodes representing tasks or decisions.
+2. **Human-in-the-loop**: Seamlessly integrate human input and approvals into automated workflows.
+3. **Dynamic routing**: Route execution flow based on runtime data or conditions using functions or static mappings.
+4. **Type checking**: Ensure type safety and compatibility between nodes for robust execution.
+5. **Visualization**: Generate visual representations of your execution trees for analysis and debugging.
+6. **Resumable execution**: Restart or continue execution from specific nodes for iterative review and modification.
+7. **Lightweight and flexible**: Easy to integrate into existing projects and adapt to various use cases.
 
 # Installation:
 
@@ -47,54 +64,16 @@ You can install the package directly from PyPi using pip:
 pip install BotsOnRails
 ```
 
-# Quickstart:
+# Docs & Quickstart:
 
-## Steps:
+Check out our [extensive documentation](https://jsv4.github.io/BotsOnRails/) (still a work in progress).
 
-1. Define your functions: Write the functions that will be executed as nodes in your tree. Annotate them with type hints for inputs and outputs.
+# Examples
 
-2. Create an ExecutionTree: Instantiate an ExecutionTree object to manage your workflow.
-
-3. Register nodes: Use the node_for_tree decorator factory to register your functions as nodes in the tree. You can specify node names, approval requirements, and routing logic within the decorator.
-
-4. Compile the tree: Call the compile method on the ExecutionTree to generate the necessary routing logic and ensure type compatibility.
-
-5. Run the tree: Call the run method on the ExecutionTree to initiate execution. You can provide initial input data and control auto-approval behavior.
-
-6. Visualize and analyze: Use the visualization methods like visualize_via_graphviz and generate_mermaid_diagram to understand your workflow structure and execution flow.
-
-## Example:
-
-```
-from BotsOnRails import ExecutionTree, node_for_tree
-
-tree = ExecutionTree()
-node = node_for_tree(tree)
-
-@node(path_start=True, next_nodes="process_data")
-def get_data(**kwargs) -> str:
-    # Logic to fetch data
-    return data
-
-@node(wait_for_approval=True)
-def process_data(data: str, **kwargs) -> str:
-    # Logic to process data
-    return processed_data
-
-@node()
-def send_results(processed_data: str, **kwargs):
-    # Logic to send results
-    pass
-
-tree.compile(type_checking=True)
-tree.run()  # Initiates execution
-```
-
-This example demonstrates a simple workflow where data is fetched, processed with human approval, and then sent. You can build much more complex workflows with conditional routing, loops, and various node types.
-
-# Documentation:
-
-For detailed documentation and API reference, please refer to the docstrings within the code or visit the project's GitHub repository.
+We have a number of examples that illustrate how to build some common LLM-powered applications using BotsOnRails:
+1. [Document Processing Pipeline](docs/examples/llamaindex)
+2. [Human-in-the-loop Content Moderation](docs/examples/content_moderation)
+3. [LLM-Powered Interface](docs/examples/marvin)
 
 # Contributing:
 
