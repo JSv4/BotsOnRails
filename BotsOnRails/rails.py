@@ -18,7 +18,8 @@ from BotsOnRails.utils import match_types, find_cycles_and_for_each_paths
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ExecutionTree(BaseModel):
+
+class ExecutionPath(BaseModel):
     """
         A flexible and lightweight tree-based execution orchestrator designed for managing
         complex natural language workflows with embedded human-in-the-loop decision points.
@@ -42,7 +43,7 @@ class ExecutionTree(BaseModel):
             link_nodes: Establishes execution flow between nodes, supporting both sequential and conditional routing.
             get_node: Fetches a node instance by its name, facilitating dynamic interaction with the execution tree.
             run: Initiates the workflows execution from the root node, processing through the tree based on defined paths.
-            run_from_node: Allows restarting or continuing execution from a specific node, useful for iterative review or modification.
+            run_from_step: Allows restarting or continuing execution from a specific node, useful for iterative review or modification.
             generate_graph: Constructs a graph representation of the execution tree, aiding in visualization and analysis.
             visualize: Displays a graphical representation of the workflows, optionally saving it to disk.
             print_graph_to_command_line: Outputs a text-based representation of the execution tree to the command line for quick inspection.
@@ -54,17 +55,18 @@ class ExecutionTree(BaseModel):
     id: str = Field(default_factory=uuid.uuid4().__str__)
     input: Optional[Any] = Field(default=None)
     root_node_id: Optional[UUID4] = Field(default=None)
-    locked_at_node_name: Optional[str] = Field(default=None)
+    locked_at_step_name: Optional[str] = Field(default=None)
     nodes: Dict[str, BaseNode] = Field(default={})
     node_ids: Dict[str, UUID4] = Field(default={})
     node_names: Dict[UUID4, str] = Field(default={})
     output: Any = Field(default=SpecialTypes.NEVER_RAN)
     compiled: bool = Field(default=False)
-    state_store: StateStore = Field(exclude=True, default_factory=InMemoryStateStore)
+    state_store: StateStore = Field(default_factory=InMemoryStateStore)
     allow_cycles: bool = Field(default=True)
-    for_each_cycles: list[list[str]] = Field(default=[])
+    true_cycles: Optional[list[list[str]]] = Field(default=None)
+    for_each_cycles: Optional[list[list[str]]] = Field(default=None)
     for_each_start_node_ids: list[str] = Field(default=[])
-    for_each_end_node_ids: list[str] = Field(default=[])
+    for_each_end_node_ids: dict[str, str] = Field(default={})
 
     class Config:
         arbitrary_types_allowed = True  # Allow arbitrary types
@@ -104,8 +106,9 @@ class ExecutionTree(BaseModel):
                              "initial version of NLX requires you take a single execution pathway through"
                              "your DAG.")
         self.output = args[0]
+        print(f"Execution Tree final output: {self.output}")
 
-    def add_node(self, name: str, node: BaseNode, root: bool = False) -> 'ExecutionTree':
+    def add_node(self, name: str, node: BaseNode, root: bool = False) -> 'ExecutionPath':
         """
         Adds a node to the execution tree, optionally setting it as the root node.
 
@@ -116,7 +119,7 @@ class ExecutionTree(BaseModel):
             root (bool, optional): If True, sets the added node as the root node. Defaults to False.
 
         Returns:
-            ExecutionTree: The execution tree instance, allowing for method chaining.
+            ExecutionPath: The execution tree instance, allowing for method chaining.
 
         Raises:
             ValueError: If a node with the same name already exists in the tree.
@@ -165,7 +168,7 @@ class ExecutionTree(BaseModel):
             routing (Union[Callable[[OT], str], Dict[OT, str]]): The routing logic or mapping to determine the next node based on output.
 
         Returns:
-            ExecutionTree: The execution tree instance, allowing for method chaining.
+            ExecutionPath: The execution tree instance, allowing for method chaining.
         """
         logger.debug(f"_add_static_route() - route from `{source_node_name} / routing: {routing}`")
         source_node = self.nodes[source_node_name]
@@ -196,7 +199,7 @@ class ExecutionTree(BaseModel):
         logger.debug(f"add_functional_route() - route from `{source_node_name}` / ")
         source_node = self.nodes[source_node_name]
         source_node.route = routing
-        source_node.func_router_possible_node_annot = router_target_annotation
+        source_node.func_router_possible_next_step_names = router_target_annotation
 
     def _add_direct_route(self, from_node: str, to_node: str):
         """
@@ -207,53 +210,13 @@ class ExecutionTree(BaseModel):
             to_node (str): The name of the node to which the link goes.
 
         Returns:
-            ExecutionTree: The execution tree instance, for method chaining.
+            ExecutionPath: The execution tree instance, for method chaining.
         """
         logger.debug(f"add_direct_route - from `{from_node}` to `{to_node}`")
         from_node_instance = self.nodes[from_node]
         to_node_instance = self.nodes[to_node]
         logger.debug(f"\tFrom `{from_node_instance.id}` to `{to_node_instance.id}`")
         from_node_instance.route = to_node
-
-    def _validate_cycles(self, nx_digraph: nx.DiGraph) -> list[list[str]]:
-        """
-        Returns list of valid for_each cycles (as lists of node ids) in digraph or throws error.
-        Will fail if for_each doesn't end with aggregate or
-        """
-        cycles = list(nx.simple_cycles(nx_digraph))
-        logger.debug(f"Found {len(cycles)} cycles: {cycles}")
-        for_each_cycles = []
-
-        logger.debug("Iterating over cycles")
-        for cycle in cycles:
-            logger.debug(f"Processing cycle: {cycle}")
-            start_node = nx_digraph.nodes[cycle[0]]
-            logger.debug(f"Start node: {cycle[0]} with attributes: {start_node}")
-            end_node = nx_digraph.nodes[cycle[-1]]
-            logger.debug(f"End node: {cycle[-1]} with attributes: {end_node}")
-
-            if start_node['for_each'] and end_node['aggregate']:
-                logger.debug(f"Found a valid FOR_EACH cycle: {cycle}")
-                for_each_cycles.append(cycle)
-                self.for_each_start_node_ids.append(start_node)
-                self.for_each_end_node_ids.append(end_node)
-            elif start_node['for_each'] and not end_node['aggregate']:
-                logger.error(f"For-each cycle starting with node {cycle[0]} does not end with an aggregation node.")
-                raise ValueError(f"For-each cycle starting with node {cycle[0]} does not end with an aggregation node.")
-            else:
-                # We'll want to have other types of cycle validations, probably, for other types of cycles.
-                pass
-
-        logger.debug(f"Checking for nested cycles in {cycles}")
-        for i in range(len(cycles)):
-            for j in range(i + 1, len(cycles)):
-                logger.debug(f"Comparing cycle {cycles[i]} with cycle {cycles[j]}")
-                if set(cycles[i]).issubset(cycles[j]) or set(cycles[j]).issubset(cycles[i]):
-                    logger.error("Nested cycles are not allowed.")
-                    raise ValueError("Nested cycles are not allowed.")
-
-        logger.debug("Leaving detect_cycles function")
-        return for_each_cycles
 
     def compile(self, type_checking: bool = False):
         """
@@ -262,7 +225,7 @@ class ExecutionTree(BaseModel):
         """
 
         if self.root_node_id is None:
-            raise ValueError("You need to register a root node. Use the start_node=True argument on root node "
+            raise ValueError("You need to register a root node. Use the path_start=True argument on root node "
                              "decorator")
 
         for node_name, node in self.nodes.items():
@@ -291,7 +254,8 @@ class ExecutionTree(BaseModel):
                     self._add_static_route(node_name, node.route)
 
             elif isinstance(node.route, tuple):
-                logger.debug(f"Compiling node with route {node.route}, which IS a tuple - output type {node.output_type}")
+                logger.debug(
+                    f"Compiling node with route {node.route}, which IS a tuple - output type {node.output_type}")
                 if node.route[0] == 'FOR_EACH' and isinstance(node.route[1], str):
                     logger.debug("Meets for_each syntax requirements")
                     if type_checking:
@@ -315,10 +279,10 @@ class ExecutionTree(BaseModel):
 
                 # For function-based routing, create a functional router node
                 # Assuming we can extract or have predefined target annotations for dynamic functions
-                if node.func_router_possible_node_annot:
+                if node.func_router_possible_next_step_names:
 
                     if type_checking:
-                        for possible_node in node.func_router_possible_node_annot:
+                        for possible_node in node.func_router_possible_next_step_names:
                             target_node = self.nodes[possible_node]
                             match_types(
                                 node.output_type,
@@ -327,10 +291,10 @@ class ExecutionTree(BaseModel):
                                 aggregator=node.aggregator
                             )
 
-                    self._add_functional_route(node_name, node.route, node.func_router_possible_node_annot)
+                    self._add_functional_route(node_name, node.route, node.func_router_possible_next_step_names)
                 else:
                     raise ValueError(
-                        f"Node {node_name} uses a routing function but does not have func_router_possible_node_annot set.")
+                        f"Node {node_name} uses a routing function but does not have func_router_possible_next_step_names set.")
 
             elif isinstance(node.route, str):
 
@@ -355,39 +319,58 @@ class ExecutionTree(BaseModel):
         if self.allow_cycles:
 
             digraph = self.generate_nx_digraph(ignore_compile_flag=True)
-            cycles, for_each_cycles = find_cycles_and_for_each_paths(
-                digraph,
-                self.root_node_name
-            )
 
-            # Populate state store with iteration counts.
-            for cycle in for_each_cycles:
-                self.state_store.set_property_for_node(
-                    cycle[0],
-                    'expected',
-                    0
+            if self.true_cycles is None or self.for_each_cycles is None:
+                cycles, for_each_cycles = find_cycles_and_for_each_paths(
+                    digraph,
+                    self.root_node_name
                 )
-                self.state_store.set_property_for_node(
-                    cycle[0],
-                    'actual',
-                    0
-                )
-                self.state_store.set_property_for_node(
-                    cycle[len(cycle) - 1],
-                    'actual',
-                    0
-                )
-                self.state_store.set_property_for_node(
-                    cycle[len(cycle) - 1],
-                    'expected',
-                    0
-                )
-                self.state_store.register_cycle(cycle[0], cycle[len(cycle)-1])
-            self.for_each_cycles = for_each_cycles
+                self.true_cycles = cycles
+                self.for_each_cycles = for_each_cycles
+                self.for_each_end_node_ids = {
+                    cycle[0]: cycle[-1] for cycle in self.for_each_cycles
+                }
+                print(f"compile() - for_each_end_node_ids: {self.for_each_end_node_ids}")
+
         else:
             if self.has_cycle:
                 raise ValueError("allow_cycles is set to False but the tree has cycles...")
+
+        # Prep the state store.
+        self._prep_state_store()
+
         self.compiled = True
+
+    def _prep_state_store(self):
+        """
+        Sets up state store with state variables needed for loop control
+        """
+        # Populate state store with iteration counts.
+        if self.for_each_cycles is None:
+            raise ValueError(f"Tree not properly compiled... for_each_cycles is still None")
+
+        for cycle in self.for_each_cycles:
+            self.state_store.set_property_for_node(
+                cycle[0],
+                'expected',
+                0
+            )
+            self.state_store.set_property_for_node(
+                cycle[0],
+                'actual',
+                0
+            )
+            self.state_store.set_property_for_node(
+                cycle[len(cycle) - 1],
+                'actual',
+                0
+            )
+            self.state_store.set_property_for_node(
+                cycle[len(cycle) - 1],
+                'expected',
+                0
+            )
+            self.state_store.register_cycle(cycle)
 
     def get_node(self, name: str) -> Optional[BaseNode]:
         """
@@ -403,17 +386,18 @@ class ExecutionTree(BaseModel):
 
     def _clear_execution_state(self):
 
+        print(f"Clear Execution State!")
         self.output = SpecialTypes.NEVER_RAN
-        self.locked_at_node_name = None
+        self.locked_at_step_name = None
 
         for n in self.nodes.values():
             n.clear_state()
 
     def run(
-        self,
-        *args,
-        auto_approve: bool = False,
-        runtime_args: Optional[Dict] = None
+            self,
+            *args,
+            auto_approve: bool = False,
+            runtime_args: Optional[Dict] = None
     ) -> Any:
         """
         Initiates the execution of the workflows from the root node, processing through the tree based on defined paths.
@@ -447,6 +431,10 @@ class ExecutionTree(BaseModel):
 
             # First let's clear any residual state
             self._clear_execution_state()
+            self.state_store.reset()
+
+            # Setup loop tracking vars
+            self._prep_state_store()
 
             self.root.run(
                 *args,
@@ -456,11 +444,11 @@ class ExecutionTree(BaseModel):
 
             for name, node in self.nodes.items():
                 if node.waiting_for_approval:
-                    if self.locked_at_node_name is not None:
+                    if self.locked_at_step_name is not None:
                         raise ValueError(f"Your tree appears to have stopped at multiple execution points - node "
-                                         f"{self.locked_at_node_name} and {name}. We don't support that (yet...)")
+                                         f"{self.locked_at_step_name} and {name}. We don't support that (yet...)")
                     else:
-                        self.locked_at_node_name = name
+                        self.locked_at_step_name = name
                         self.output = SpecialTypes.EXECUTION_HALTED
 
             # If we ran the tree but nothing came back, just flip output to NO_RETURN (TODO - change that)
@@ -468,10 +456,12 @@ class ExecutionTree(BaseModel):
                 self.output = SpecialTypes.NEVER_FINISHED
 
             return self.output
+        else:
+            raise ValueError("No root node registered!")
 
     def _rehydrate_output(self, output: Any, node: BaseNode) -> Any:
         """
-        If you try to run_from_node and pass in a prev_execution_state that was serialized, you will only be able to get
+        If you try to run_from_step and pass in a prev_execution_state that was serialized, you will only be able to get
         primitives, dicts, tuples and list. Objects and other types of variables will not be able to be serialized and
         deserialized without custom tooling. This function is a place you can hook into the execution order and convert
         the output_data from your selected start node back into the type it was supposed to be. For now, we only support
@@ -482,7 +472,7 @@ class ExecutionTree(BaseModel):
         else:
             return output
 
-    def run_from_node(
+    def run_from_step(
             self,
             node_name: str,
             input_val: Any = SpecialTypes.NOT_PROVIDED,
@@ -525,7 +515,7 @@ class ExecutionTree(BaseModel):
             runtime_args = {}
 
         # If you want to replay the entire tree for some reason, just grab initial inputs from previous run
-        logger.debug(f"Tree {self.id} - run_from_node {node_name}")
+        logger.debug(f"Tree {self.id} - run_from_step {node_name}")
 
         # Run tree from specified node. Not, if it's an approval node, you'll need to set skip_approval = True otherwise
         # you will just get stuck waiting for approval again.
@@ -534,6 +524,10 @@ class ExecutionTree(BaseModel):
 
         # Clear any residual state from last run
         self._clear_execution_state()
+        self.state_store.reset()
+
+        # Setup state store for tracking vars
+        self._prep_state_store()
 
         if prev_execution_state is not None:
             exec_state = {**prev_execution_state}
@@ -542,7 +536,7 @@ class ExecutionTree(BaseModel):
             self.output = SpecialTypes(exec_state['output'])
             prev_execution_state_nodes = exec_state['nodes']
             start_after_node = prev_execution_state_nodes[node_name]
-            logger.debug(f"run_from_node() - start after execution state {start_after_node}")
+            logger.debug(f"run_from_step() - start after execution state {start_after_node}")
 
             for node_name, state in prev_execution_state_nodes.items():
                 if state['executed']:
@@ -561,8 +555,8 @@ class ExecutionTree(BaseModel):
             #     start_node_output_data = start_node.output_type(**start_node_output_data)
 
             logger.debug(f"running next with output data {start_node_output_data}")
-            logger.debug(f"run_from_node() - output_data: {start_node_output_data}")
-            logger.debug(f"run_from_node() - input_data: {start_node_input_data}")
+            logger.debug(f"run_from_step() - output_data: {start_node_output_data}")
+            logger.debug(f"run_from_step() - input_data: {start_node_input_data}")
 
         else:
             print(f"prev_execution_state is None... reset inputs and states ")
@@ -636,13 +630,13 @@ class ExecutionTree(BaseModel):
         # ATM we do NOT support having multiple breakpoints in parallel branches.
         for name, node in self.nodes.items():
             if node.waiting_for_approval:
-                if self.locked_at_node_name is not None:
+                if self.locked_at_step_name is not None:
                     raise ValueError(f"Your tree appears to have stopped at multiple execution points - node "
-                                     f"{self.locked_at_node_name} and {name}. We don't support that (yet...)")
+                                     f"{self.locked_at_step_name} and {name}. We don't support that (yet...)")
                 else:
-                    self.locked_at_node_name = name
+                    self.locked_at_step_name = name
 
-        if self.locked_at_node_name:
+        if self.locked_at_step_name:
             return SpecialTypes.EXECUTION_HALTED
 
         if self.output == SpecialTypes.NEVER_RAN:
@@ -700,12 +694,12 @@ class ExecutionTree(BaseModel):
                 logger.debug(f"\t\tgenerate_graph() - Link {name} to {node.route}")
                 G.add_edge(name, node.route)
             elif isinstance(node.route, (Callable, collections.abc.Callable)):
-                if isinstance(node.func_router_possible_node_annot, list):
-                    for target_name in node.func_router_possible_node_annot:
+                if isinstance(node.func_router_possible_next_step_names, list):
+                    for target_name in node.func_router_possible_next_step_names:
                         G.add_edge(name, target_name)
                 else:
                     logger.warning(
-                        f"Cannot show outputs of router function for {node.name} as func_router_possible_node_annot is Null")
+                        f"Cannot show outputs of router function for {node.name} as func_router_possible_next_step_names is Null")
             elif isinstance(node.route, (tuple, Tuple)):
                 logger.debug(f"Node {node.name} is a special command with a tuple.")
                 if node.route[0] == 'FOR_EACH' and isinstance(node.route[1], str):
@@ -790,7 +784,7 @@ class ExecutionTree(BaseModel):
             diagram += f'        +InputData input = {input_data}\n'
             diagram += f'        +OutputData output = {output_data}\n'
             if node['waiting_for_approval']:
-                diagram +='        ----- !! HALT !! -----'
+                diagram += '        ----- !! HALT !! -----'
             diagram += '    }\n'
 
             selected_route = node['selected_route']
@@ -836,13 +830,18 @@ class ExecutionTree(BaseModel):
                         dot.edge(node_name, target_node_name, label=label, color='blue')
                 elif callable(node.route):
                     # Functional routing (condition function)
-                    # Assuming func_router_possible_node_annot for target nodes visualization
-                    for target_node_name in node.func_router_possible_node_annot:
+                    # Assuming func_router_possible_next_step_names for target nodes visualization
+                    for target_node_name in node.func_router_possible_next_step_names:
                         label = "func condition"
                         dot.edge(node_name, target_node_name, label=label, color='red')
                 elif isinstance(node.route, str):
                     # Direct routing
                     dot.edge(node_name, node.route, color='black')
+                elif isinstance(node.route, tuple):
+                    label = "for_each output item -->"
+                    dot.edge(node_name, node.route[1], label=label, color='blue')
+                    print(self.for_each_end_node_ids)
+                    dot.edge(self.for_each_end_node_ids[node_name], node_name, label, color='blue')
                 else:
                     raise ValueError(f"Unsupported route type for node {node_name}")
 

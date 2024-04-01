@@ -1,8 +1,8 @@
 import unittest
 from typing import NoReturn
 
-from BotsOnRails.decorators import node_for_tree
-from BotsOnRails.tree import ExecutionTree
+from BotsOnRails.decorators import step_decorator_for_path
+from BotsOnRails.rails import ExecutionPath
 from BotsOnRails.types import SpecialTypes
 
 
@@ -10,10 +10,10 @@ class TestResumeExecution(unittest.TestCase):
 
     def test_resume_after_approve(self):
 
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes={'open': 'open', 'turn_back': 'turn_back'}, start_node=True)
+        @node(next_step={'open': 'open', 'turn_back': 'turn_back'}, path_start=True)
         def explore_the_cave(route: int, **kwargs) -> NoReturn:
             print("You have been exploring the cave system for hours when you stumble across a an ancient-looking "
                   "metal door flecked with veins of a strange, glowing green mineral. A symbol that looks vaguely like "
@@ -29,7 +29,7 @@ class TestResumeExecution(unittest.TestCase):
                   "Haltleson told me to.' No snack time for you.")
             return "You are dead. And lame."
 
-        @node(wait_for_approval=True, next_nodes={"yes": "press_the_button", "no": "turn_back"})
+        @node(wait_for_approval=True, next_step={"yes": "press_the_button", "no": "turn_back"})
         def open(*args, **kwargs) -> str:
             print("Behind the door is a polished rock face of deepest ebony. Those strange green mineral veins"
                   "cris-cross the surface and seem to gather size and intensity as they flow toward a large round"
@@ -49,7 +49,7 @@ class TestResumeExecution(unittest.TestCase):
         assert results == SpecialTypes.EXECUTION_HALTED
 
         halted_state = tree.model_dump()
-        destroy_the_world = tree.run_from_node(
+        destroy_the_world = tree.run_from_step(
             'open',
             prev_execution_state=halted_state,
             override_output='yes'

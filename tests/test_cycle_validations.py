@@ -22,7 +22,7 @@ def test_for_each_path_only():
     cycle_analysis = find_cycles_and_for_each_paths(graph, 1)
     cycles, for_each_paths = cycle_analysis
     assert cycles == []
-    assert for_each_paths[0] == (1, 4)
+    assert for_each_paths[0] == [1, 2, 3, 4]
 
 
 def test_cycle_with_for_each_node():
@@ -65,7 +65,7 @@ def test_multiple_cycles_and_for_each_paths():
     graph.add_edges_from([(6, 7), (7, 8), (8, 9), (9, 10)])
     cycles, for_each_paths = find_cycles_and_for_each_paths(graph, 1)
     assert set(cycles) == {(1, 3), (4, 6)}
-    assert for_each_paths == [(7, 10)]
+    assert for_each_paths == [[7, 8, 9, 10]]
 
 
 def test_no_cycles_or_for_each_paths():

@@ -172,8 +172,12 @@ def match_types(
 
     # Extract argument types for function B
     input_params = get_type_hints(next_function)
+    print(f"Input parameters for next func {next_function.__name__}: {input_params}")
     input_signature_params = inspect.signature(next_function).parameters
-    input_params.pop('return')  # We don't want return type on the input annotation hint
+
+    # We don't want return type on the input annotation hint
+    if 'return' in input_params:
+        input_params.pop('return')
     annot = get_origin(previous_func_output)
 
     if aggregator:
@@ -230,9 +234,9 @@ def match_types(
                 raise ValueError(f"for_each_loop - Mismatched input between output ({previous_func_output} and next input "
                                  f"({list(input_params.values())[0]}). YOU ARE USING FLAG unpack_output.")
         else:
-            raise ValueError(f"Return type is an iterable, and you want to loop over each of its constituent elements."
-                             f"We check that the constituent parts of the list or tuple are what's expected as an input"
-                             f"for the next function, but it expects multiple inputs.")
+            raise ValueError(f"Return type to {next_function.__name__} is an iterable, and you want to loop over each "
+                             f"of its constituent elements. We check that the constituent parts of the list or tuple "
+                             f"are what's expected as an input for the next function, but it expects multiple inputs.")
 
     elif not unpack_output:
         if len(input_params.items()) == 1:
@@ -248,38 +252,40 @@ def match_types(
         next_func_input_types = list(input_params.values())
         prev_f_unpacked_annot = unpack_annotation(previous_func_output)
 
+        # 1) If previous function has MORE annotations than what's expected in next function...
         if len(prev_f_unpacked_annot) > len(next_func_input_types) and 'args' not in input_signature_params:
             raise ValueError(
                 f"Function {next_function.__name__} is going to receive too many positional arguments: "
                 f"{prev_f_unpacked_annot}")
 
-        # 2) The output iterable has exactly same # of constituent members as inputs, in which case we need to check
-        # annotations are same.
-        if len(prev_f_unpacked_annot) == len(next_func_input_types):
+        # 2) OR, if output iterable has exactly same # of constituent members as inputs, we need to check
+        # annotations at same index position are the same.
+        elif len(prev_f_unpacked_annot) == len(next_func_input_types):
             for index, (out_type, b_arg_type) in enumerate(zip(prev_f_unpacked_annot, next_func_input_types)):
                 if out_type != b_arg_type:
                     raise ValueError(
                         f"Mismatch in input iterable @ pos {index} to {next_function.__name__} - output "
                         f"type {out_type} != {b_arg_type} ")
 
-        # 3) We have an output iterable with fewer constituent members than input, in which case this CAN be valid IF
+        # 3) OR, if we have an output iterable with fewer constituent members than input, this CAN be valid IF
         # we have a) more than enough values for non-optional values and b) any remaining values have same type as
         # what's expected for corresponding optional values
-        logger.debug(F"b_arg_types: {next_func_input_types}")
-        if len(prev_f_unpacked_annot) < len(next_func_input_types):
+        elif len(prev_f_unpacked_annot) < len(next_func_input_types):
+            logger.debug(F"b_arg_types: {next_func_input_types}")
             raise ValueError(
                 f"Function {next_function.__name__} has at least {len(next_func_input_types)} required positional "
                 f"args, yet output value of preceding function only has {len(prev_f_unpacked_annot)} members")
 
-        logger.debug(f"Optional inputs for {next_function.__name__}: {prev_f_unpacked_annot}")
-        for index, opt_inp in enumerate(prev_f_unpacked_annot):
-            if is_optional_annotation(next_func_input_types[index]):
-                if next_func_input_types[index] == opt_inp:
-                    pass
-                elif not type_allowed_under_optional_annot(opt_inp, next_func_input_types[index]):
-                    raise ValueError(
-                        f"Positional argument # {index} for function {next_function.__name__} is Union "
-                        f"({next_func_input_types[index]}) but doesn't allow type {opt_inp}")
+            print(f"Optional inputs for {next_function.__name__}: {next_func_input_types}")
+            print(f"Outputs from previous f annot: {prev_f_unpacked_annot}")
+            for index, opt_inp in enumerate(prev_f_unpacked_annot):
+                if is_optional_annotation(next_func_input_types[index]):
+                    if next_func_input_types[index] == opt_inp:
+                        pass
+                    elif not type_allowed_under_optional_annot(opt_inp, next_func_input_types[index]):
+                        raise ValueError(
+                            f"Positional argument # {index} for function {next_function.__name__} is Union "
+                            f"({next_func_input_types[index]}) but doesn't allow type {opt_inp}")
 
 
 def is_iterable_of_primitives(value: Any) -> bool:
@@ -295,7 +301,7 @@ def is_iterable_of_primitives(value: Any) -> bool:
     return isinstance(value, (tuple, list)) and not isinstance(value, (str, bytes, bytearray))
 
 
-def find_cycles_and_for_each_paths(graph, root_node_id: Any):
+def find_cycles_and_for_each_paths(graph, root_node_id: Any) -> tuple[list[str], list[str]]:
     cycles = list(nx.simple_cycles(graph))
 
     logger.debug(f"Checking for nested cycles in {cycles}")
@@ -324,7 +330,14 @@ def find_cycles_and_for_each_paths(graph, root_node_id: Any):
             raise ValueError(f"For_each node {node_id} is inside a cycle.")
 
         if graph.nodes[node_id].get('aggregator', False) and for_each_start_id is not None:
-            for_each_paths.append((for_each_start_id, node_id))
+            print(f"Finished for_each cycle path: {path}")
+            cycle_start_index = path.index(for_each_start_id)
+            print(f"Cycle start index: {cycle_start_index}")
+            cycle_end_index = path.index(node_id)
+            print(f"Cycle end index: {cycle_end_index}")
+            total_cycle = path[cycle_start_index:cycle_end_index+1]
+            print(f"Total cycle: {total_cycle}")
+            for_each_paths.append(total_cycle)
             for_each_start_id = None
 
         if graph.out_degree(node_id) > 1 and for_each_start_id is not None:

@@ -1,16 +1,16 @@
 import unittest
 from typing import Tuple, Optional, List, Union, NoReturn, Dict, Callable
 
-from BotsOnRails.decorators import node_for_tree
-from BotsOnRails.tree import ExecutionTree
+from BotsOnRails.decorators import step_decorator_for_path
+from BotsOnRails.rails import ExecutionPath
 
 
 class TestTypeChecking(unittest.TestCase):
     def test_simple_types(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Tuple[int, str]: return 1, "test"
 
         @node()
@@ -22,10 +22,10 @@ class TestTypeChecking(unittest.TestCase):
         assert results == '1test'
 
     def test_optional_types(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Tuple[int, Optional[str]]: return 1, None
 
         @node()
@@ -36,10 +36,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run()
 
     def test_mismatched_types(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b')
+        @node(next_step='b')
         def a() -> Tuple[int, str]: return (1, "test")
 
         @node()
@@ -51,10 +51,10 @@ class TestTypeChecking(unittest.TestCase):
         # Not testing run because we can't run this tree
 
     def test_incorrect_argument_count(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b')
+        @node(next_step='b')
         def a() -> Tuple[int, str, float]: return (1, "test", 2.0)
 
         @node()
@@ -66,10 +66,10 @@ class TestTypeChecking(unittest.TestCase):
         # Not testing run because we can't run this tree
 
     def test_handling_list(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', unpack_output=False, start_node=True)
+        @node(next_step='b', unpack_output=False, path_start=True)
         def a(**kwargs) -> List[int]: return [1, 2, 3]
 
         @node()
@@ -80,10 +80,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 6
 
     def test_handling_union(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Union[int, str]: return "test"
 
         @node()
@@ -94,10 +94,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 'test'
 
     def test_handling_optional_with_none(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Optional[int]: return None
 
         @node()
@@ -107,10 +107,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() is None
 
     def test_nested_tuples(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Tuple[Tuple[int, str], bool]: return ((1, "nested"), True)
 
         @node()
@@ -121,10 +121,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == '1-nested-True'
 
     def test_list_of_tuples(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True, unpack_output=False)
+        @node(next_step='b', path_start=True, unpack_output=False)
         def a(**kwargs) -> List[Tuple[int, str]]: return [(1, "one"), (2, "two")]
 
         @node(unpack_output=False)
@@ -135,10 +135,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 2
 
     def test_complex_union(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True, unpack_output=False)
+        @node(next_step='b', path_start=True, unpack_output=False)
         def a(**kwargs) -> Union[Tuple[int, str], List[str], str]: return ["hello", "world"]
 
         @node()
@@ -151,10 +151,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 2
 
     def test_default_none_with_optional(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Optional[str]: return None
 
         @node()
@@ -166,10 +166,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() is None
 
     def test_mixed_types_with_optional(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Tuple[int, Optional[str], bool]: return (1, None, True)
 
         @node()
@@ -180,10 +180,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run()
 
     def test_dict_output_input(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Dict[str, int]: return {"one": 1, "two": 2}
 
         @node()
@@ -194,10 +194,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 3
 
     def test_multiple_optional_outputs(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Tuple[Optional[int], Optional[str]]: return (None, "test")
 
         @node()
@@ -208,10 +208,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == "test"
 
     def test_callable_as_input(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Callable[[int], int]: return lambda x: x * 2
 
         @node()
@@ -222,10 +222,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 20
 
     def test_nested_collections(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True, unpack_output=False)
+        @node(next_step='b', path_start=True, unpack_output=False)
         def a(**kwargs) -> List[Dict[str, Tuple[int, str]]]: return [{"key": (1, "value")}]
 
         @node(unpack_output=False)
@@ -236,10 +236,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == "value"
 
     def test_none_as_output_with_invalid_input(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> None: pass
 
         # This doesn't work because there's no positional arg for `None` return type.
@@ -254,10 +254,10 @@ class TestTypeChecking(unittest.TestCase):
 
     ### Additional Union type checks
     def test_union_with_two_types(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Union[int, str]: return 42
 
         @node()
@@ -268,10 +268,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == "Value: 42"
 
     def test_union_with_none_type(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Union[None, str]: return None
 
         @node()
@@ -282,10 +282,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == "No value"
 
     def test_union_with_multiple_types(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Union[int, str, bool]: return True
 
         @node()
@@ -296,18 +296,18 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == "True"
 
     def test_union_returning_different_types(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True, unpack_output=False)
+        @node(next_step='b', path_start=True, unpack_output=False)
         def a(**kwargs) -> Union[str, int]:
             return "test" if kwargs.get('to_str', False) else 1
 
-        @node(next_nodes='d')
+        @node(next_step='d')
         def b(x: str | int, **kwargs) -> str:
             return f"String: {x}"
 
-        # @node(next_nodes='d')
+        # @node(next_step='d')
         # def c(x: int, **kwargs) -> str:
         #     return f"Int: {x}"
 
@@ -320,10 +320,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() is None  # This test assumes dynamic path selection based on output
 
     def test_union_with_callable(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Union[Callable[[int], int], str]: return lambda x: x + 1
 
         @node()
@@ -336,10 +336,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 6
 
     def test_union_with_collections(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True, unpack_output=False)
+        @node(next_step='b', path_start=True, unpack_output=False)
         def a(**kwargs) -> Union[List[int], Dict[str, int]]:
             return [1, 2, 3]
 
@@ -355,10 +355,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 6
 
     def test_union_with_different_collections(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True, unpack_output=False)
+        @node(next_step='b', path_start=True, unpack_output=False)
         def a(**kwargs) -> Union[List[int], Tuple[int, ...]]: return (1, 2, 3)
 
         @node()
@@ -369,10 +369,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == 3
 
     def test_union_with_none_as_explicit_option(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> Union[int, None]: return None
 
         @node()
@@ -383,10 +383,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == "None received"
 
     def test_union_post_python_3_9_syntax(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True)
+        @node(next_step='b', path_start=True)
         def a(**kwargs) -> int | None: return None
 
         @node()
@@ -397,10 +397,10 @@ class TestTypeChecking(unittest.TestCase):
         assert tree.run() == "None"
 
     def test_union_with_complex_nested_types(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes='b', start_node=True, unpack_output=False)
+        @node(next_step='b', path_start=True, unpack_output=False)
         def a(**kwargs) -> Union[List[Tuple[int, str]], Dict[str, List[int]]]:
             return {"numbers": [1, 2, 3]}
 

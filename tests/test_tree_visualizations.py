@@ -7,8 +7,8 @@ from typing import Tuple, Optional, List, Union, NoReturn, Dict, Callable
 
 import BotsOnRails
 
-from BotsOnRails.decorators import node_for_tree
-from BotsOnRails.tree import ExecutionTree
+from BotsOnRails.decorators import step_decorator_for_path
+from BotsOnRails.rails import ExecutionPath
 
 fixture_dir = Path(__file__).parent / 'fixtures'
 visualizations_dir = fixture_dir / "visualizations"
@@ -19,14 +19,14 @@ class TestTreeValidations(unittest.TestCase):
 
     def setUp(self):
         self.maxDiff = None
-        self.tree = ExecutionTree()
-        node = node_for_tree(self.tree)
+        self.tree = ExecutionPath()
+        node = step_decorator_for_path(self.tree)
 
-        @node(start_node=True, next_nodes="b")
+        @node(path_start=True, next_step="b")
         def a(**kwargs) -> str:
             return "Hello!"
 
-        @node(next_nodes="c", wait_for_approval=True)
+        @node(next_step="c", wait_for_approval=True)
         def b(arg1: str, **kwargs) -> str:
             return arg1
 
@@ -50,7 +50,7 @@ class TestTreeValidations(unittest.TestCase):
 
         self.tree.compiled = False
 
-        with self.assertLogs(BotsOnRails.tree.__name__, level='WARNING') as cm:
+        with self.assertLogs(BotsOnRails.rails.__name__, level='WARNING') as cm:
             with tempfile.TemporaryDirectory() as tmpdirname:
                 target_file_path = (Path(tmpdirname) / nx_filename).__str__()
                 self.tree.visualize_via_nx(
@@ -60,7 +60,7 @@ class TestTreeValidations(unittest.TestCase):
                     open(target_file_path, "rb").read(),
                     open((visualizations_dir / nx_filename).__str__(), "rb").read()
                 )
-        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.tree.__name__}:You must call .compile() after adding the '
+        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.rails.__name__}:You must call .compile() after adding the '
                                      f'last node before you can visualize the Execution Tree. Calling it for you!',
                                      ])
 
@@ -69,7 +69,7 @@ class TestTreeValidations(unittest.TestCase):
         self.tree._clear_execution_state()
         self.tree.compiled = False
 
-        with self.assertLogs(BotsOnRails.tree.__name__, level='WARNING') as cm:
+        with self.assertLogs(BotsOnRails.rails.__name__, level='WARNING') as cm:
             self.assertEqual(
                 self.tree.generate_mermaid_diagram(),
                 None
@@ -95,7 +95,7 @@ class TestTreeValidations(unittest.TestCase):
                 diagram,
                 halted_execution_diagram
             )
-        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.tree.__name__}:You must call .compile() after adding the '
+        self.assertEqual(cm.output, [f'WARNING:{BotsOnRails.rails.__name__}:You must call .compile() after adding the '
                                      f'last node before you can visualize the Execution Tree. Calling it for you!',
                                      ])
 

@@ -5,18 +5,18 @@ from typing import NoReturn, Optional, Tuple
 from rich.console import Console
 from rich.panel import Panel
 
-from BotsOnRails.decorators import node_for_tree
-from BotsOnRails.tree import ExecutionTree
+from BotsOnRails.decorators import step_decorator_for_path
+from BotsOnRails.rails import ExecutionPath
 from faker import Faker
 
-tree = ExecutionTree()
-onboarding_agent_nodes = node_for_tree(tree)
+tree = ExecutionPath()
+onboarding_agent_nodes = step_decorator_for_path(tree)
 
 Faker.seed(random.randint(0, 100000))
 fake = Faker()
 
 
-@onboarding_agent_nodes(next_nodes='assign_a_new_title', start_node=True)
+@onboarding_agent_nodes(next_step='assign_a_new_title', path_start=True)
 def get_name(*args, **kwargs) -> str:
     """
     Fetch the user's name to print up some rad biz cards.
@@ -25,7 +25,7 @@ def get_name(*args, **kwargs) -> str:
     return name
 
 
-@onboarding_agent_nodes(wait_for_approval=True, next_nodes='print_up_business_card')
+@onboarding_agent_nodes(wait_for_approval=True, next_step='print_up_business_card')
 def assign_a_new_title(name: str, *args, **kwargs) -> Tuple[str, str]:
     """
     Use our super awesome 'AI' HR bot to assign you the job you'll be best at!
@@ -66,7 +66,7 @@ initial_results = tree.run()
 
 like_it = input("Do you like your new job title? Please say yes! Type `yes` to print up some biz cards.")
 if like_it.lower() == 'yes':
-    tree.run_from_node(
+    tree.run_from_step(
         'assign_a_new_title',
         prev_execution_state=initial_results,
         has_approval=True

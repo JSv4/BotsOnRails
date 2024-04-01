@@ -31,7 +31,7 @@ class BaseNode(BaseModel):
     selected_route: Optional[List[str] | str] = Field(default=None)
     route: Optional[Callable[[OT], str] | Dict[OT, str] | str | tuple[Literal['FOR_EACH'], str]] = Field(default=None,
                                                                                                          exclude=True)
-    func_router_possible_node_annot: Optional[List[str]] = Field(exclude=True, default=None)
+    func_router_possible_next_step_names: Optional[List[str]] = Field(exclude=True, default=None)
     get_node: Optional[Callable[[str], 'BaseNode']] = Field(exclude=True, default=None)
     execute_function: Optional[Callable] = Field(default=None, exclude=True)
     aggregator: bool = Field(default=False, description='Indicates if this node is an aggregator node')
@@ -109,8 +109,9 @@ class BaseNode(BaseModel):
         self.executed = True
 
         if self.aggregator:
+            logger.debug(self.state_store.dump_store())
+            logger.debug(f"Get actual and expected for {self.name}")
             current_run_count = self.state_store.get_property_for_node(self.name, 'actual')
-
             expected_run_count = self.state_store.get_property_for_node(self.name, 'expected')
 
             if current_run_count is None:
@@ -125,17 +126,24 @@ class BaseNode(BaseModel):
                     elif current_run_count > 1:
                         self.output_data.append(node_output)
                 else:
-                    pass
+                    logger.debug(f"Handling final completion for aggregator {self.name} for output {self.output_data}")
+                    if self.handle_function_completion_signal is not None:
+                        logger.debug(f"\tHandling function is register!")
+                        self.handle_function_completion_signal(self.output_data)
             else:
                 raise ValueError(f"expected_run_count is not an integer! "
                                  f"It's ({type(expected_run_count)}): {expected_run_count}")
         else:
             self.output_data = node_output
+            logger.debug(f"Output data for {self.name}: {self.output_data}")
 
             if self.for_each_start_node:
+                logger.debug(f"\tThis is a for_each start node... store values")
                 loop_end_node_id = self.state_store.cycle_start_id_ends_at_id(self.name)
                 self.state_store.set_property_for_node(self.name, 'expected', len(self.output_data))
+                self.state_store.set_property_for_node(self.name, "iterable", self.output_data)
                 self.state_store.set_property_for_node(loop_end_node_id, 'expected', len(self.output_data))
+                self.state_store.set_property_for_node(loop_end_node_id, "iterable", self.output_data)
 
             if self.handle_function_completion_signal is not None:
                 self.handle_function_completion_signal(node_output)
@@ -233,7 +241,7 @@ class BaseNode(BaseModel):
                         if isinstance(expected_run_count, int) \
                                 and isinstance(current_run_count, int) \
                                 and current_run_count >= expected_run_count:
-                            logger.debug(f"Aggregator has run max # of times proceed to router")
+                            logger.debug(f"Aggregator has run max # of times proceed to handle leaf output")
                             self.handle_leaf_output(output)
 
                     # Otherwise
@@ -250,6 +258,8 @@ class BaseNode(BaseModel):
 
         logger.debug(f"Node {self.name} - run with approval {has_approval} and runtime_args: {runtime_args}")
         logger.debug(f"\tReceived input {args}")
+
+        # Build runtime args
         if runtime_args:
             input_chain = runtime_args.get("input_chain", None)
             if isinstance(input_chain, dict):
@@ -264,6 +274,19 @@ class BaseNode(BaseModel):
                     self.name: args
                 }
             }
+
+        # Inject iteration info (if any) into the runtime_args so we can look back in loops to start info.
+        my_for_each_cycle = self.state_store.node_id_in_cycle(self.name)
+        if my_for_each_cycle is not None:
+            expected = self.state_store.get_property_for_node(my_for_each_cycle[0], "expected")
+            actual = self.state_store.get_property_for_node(my_for_each_cycle[0], "actual")
+            source_iterable = self.state_store.get_property_for_node(my_for_each_cycle[0], "iterable")
+            runtime_args['for_each_loop'] = {
+                "expected": expected,
+                "actual": actual,
+                "source_iterable": source_iterable
+            }
+
         self.runtime_args = runtime_args
 
         processed_input = self.pre_process_input(*args)

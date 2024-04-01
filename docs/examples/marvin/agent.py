@@ -13,11 +13,11 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from BotsOnRails import ExecutionTree, node_for_tree
+from BotsOnRails import ExecutionPath, step_decorator_for_path
 from BotsOnRails.types import SpecialTypes
 
-tree = ExecutionTree()
-node = node_for_tree(tree)
+tree = ExecutionPath()
+node = step_decorator_for_path(tree)
 
 credential_file = Path(__file__).parent / "credentials.json.env"
 credentials = json.loads(credential_file.read_text())
@@ -78,9 +78,9 @@ documents: list[LoadedFile] = []
 
 
 @node(
-    start_node=True,
+    path_start=True,
     wait_for_approval=True,
-    next_nodes={
+    next_step={
         "add document": "get_file_to_add_description",
         "analyze document": "get_file_to_analyze_description",
         "delete document": "get_file_to_delete_description",
@@ -97,7 +97,7 @@ def classify_intent(message: str, **kwargs) -> str:
 
 @node(
     wait_for_approval=True,
-    next_nodes="load_file"
+    next_step="load_file"
 )
 def get_file_to_add_description(*args, **kwargs) -> FileLocator:
     description = input("What file do you want to use?")
@@ -108,7 +108,7 @@ def get_file_to_add_description(*args, **kwargs) -> FileLocator:
 
 @node(
     wait_for_approval=True,
-    next_nodes="get_doc_to_analyze"
+    next_step="get_doc_to_analyze"
 )
 def get_file_to_analyze_description(*args, **kwargs) -> FileLocator:
     description = input("What file do you want to use?")
@@ -119,7 +119,7 @@ def get_file_to_analyze_description(*args, **kwargs) -> FileLocator:
 
 @node(
     wait_for_approval=True,
-    next_nodes="get_doc_to_delete"
+    next_step="get_doc_to_delete"
 )
 def get_file_to_delete_description(*args, **kwargs) -> FileLocator:
     description = input("What file do you want to use?")
@@ -140,12 +140,12 @@ def match_existing_doc(target_doc: FileLocator, **kwargs) -> Optional[LoadedFile
     return None
 
 
-@node(next_nodes="remove_doc")
+@node(next_step="remove_doc")
 def get_doc_to_delete(target_doc: FileLocator, **kwargs) -> Optional[LoadedFile]:
     return match_existing_doc(target_doc, **kwargs)
 
 
-@node(next_nodes="generate_report")
+@node(next_step="generate_report")
 def get_doc_to_analyze(target_doc: FileLocator, **kwargs) -> Optional[LoadedFile]:
     return match_existing_doc(target_doc, **kwargs)
 
@@ -257,8 +257,8 @@ while True:
                                                                             "continue - True for yes or False for"
                                                                             " no")
         if should_proceed:
-            tree.run_from_node(
-                tree.locked_at_node_name,
+            tree.run_from_step(
+                tree.locked_at_step_name,
                 prev_execution_state=tree.model_dump(),
                 has_approval=True
             )
