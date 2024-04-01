@@ -3,4 +3,9 @@ site_url: https://example.com/
 nav:
   - Home: index.md
   - About: about.md
+  - Quickstart: quickstart.md
+  - Syntax Guide: node_syntax.md
+  - Resume: resumable_workflows.md
+  - Type Checking: validation.md
+  - Loops: loops.md
 theme: readthedocs
