@@ -140,4 +140,6 @@ This demonstrates how you can build workflows that flexibly incorporate human ju
 interaction. The `wait_for_approval` mechanism allows you to designate any node as a pause point, and 
 `run_from_step` allows you to resume from that point once human input is provided.
 
-You can also see how the execution state could be easily persisted to disk and then resumed later... we call path.model_dump()
+You can also see how the execution state could be easily persisted to disk and then resumed later... the `ExecutionPath`
+obj instance is a Pydantic model, so we can dump the model out to disk, serialize it, store it, and **return to 
+execution at any arbitrary point in time.**

@@ -38,11 +38,6 @@ class StateStore(BaseModel, ABC):
     def reset(self, *args, **kwargs):
         pass
 
-    @classmethod
-    @abstractmethod
-    def from_json(cls, data: dict) -> 'StateStore':
-        pass
-
     class Config:
         arbitrary_types_allowed = True  # Allow arbitrary types
 
@@ -98,7 +93,3 @@ class InMemoryStateStore(StateStore):
     def dump_cycle_store(self) -> dict:
         with self.lock:
             return self.cycle_store
-
-    @classmethod
-    def from_json(cls, data: dict) -> 'InMemoryStateStore':
-        return cls.parse_obj(data)
