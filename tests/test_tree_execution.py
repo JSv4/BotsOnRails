@@ -1,7 +1,7 @@
 import unittest
 
-from BotsOnRails.decorators import node_for_tree
-from BotsOnRails.tree import ExecutionTree
+from BotsOnRails.decorators import step_decorator_for_path
+from BotsOnRails.rails import ExecutionPath
 from BotsOnRails.types import SpecialTypes
 
 
@@ -12,14 +12,14 @@ class TestTreeExecution(unittest.TestCase):
         Make sure we can't specify an override return value for node typed to return NoReturn
         """
 
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(start_node=True, next_nodes="b")
+        @node(path_start=True, next_step="b")
         def a(**kwargs) -> str:
             return "Hello!"
 
-        @node(next_nodes="c", wait_for_approval=True)
+        @node(next_step="c", wait_for_approval=True)
         def b(arg1: str, **kwargs) -> str:
             return arg1
 
@@ -37,7 +37,7 @@ class TestTreeExecution(unittest.TestCase):
         exec_state = tree.model_dump()
 
         # IF we don't override the output of "b" - we'll just get its original output passed along the chain
-        result_2 = tree.run_from_node(
+        result_2 = tree.run_from_step(
             "b",
             prev_execution_state=exec_state
         )
@@ -46,7 +46,7 @@ class TestTreeExecution(unittest.TestCase):
 
         # IF we DO override the output of "B" - we'll see that propagate further (here's where you could introduce
         # a corrected or approved value from a user or external function
-        result_3 = tree.run_from_node(
+        result_3 = tree.run_from_step(
             "b",
             override_output="Goodbye!"
         )

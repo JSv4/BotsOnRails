@@ -2,9 +2,9 @@ import unittest
 from typing import NoReturn
 
 
-from BotsOnRails.decorators import node_for_tree
+from BotsOnRails.decorators import step_decorator_for_path
 from BotsOnRails.nodes import BaseNode
-from BotsOnRails.tree import ExecutionTree
+from BotsOnRails.rails import ExecutionPath
 
 
 class TestTreeUtilities(unittest.TestCase):
@@ -14,10 +14,10 @@ class TestTreeUtilities(unittest.TestCase):
         Make sure we can't specify an override return value for node typed to return NoReturn
         """
 
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(start_node=True)
+        @node(path_start=True)
         def do_nothing_node(**kwargs) -> NoReturn:
             print("I'm the laziest function you've ever seen!")
 

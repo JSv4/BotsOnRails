@@ -16,13 +16,19 @@ class StateStore(ABC):
         pass
 
     @abstractmethod
-    def register_cycle(self, start_id: str, end_id: str):
+    def node_id_in_cycle(self, node_id: str) -> Optional[list]:
+        """
+        Given a random node id, is it in a cycle, and, if so, return list of cycle node ids from start to finish
+        """
+        pass
+
+    @abstractmethod
+    def register_cycle(self, node_ids: list[str]):
         """
         Register a cycle between two node ids.
 
         Args:
-            start_id (str): ID of the start node.
-            end_id (str): ID of the end node.
+            node_ids (list[str]): List of node ids in this cycle from start to end. ORDER MATTERS.
         """
         pass
 
@@ -42,20 +48,79 @@ class StateStore(ABC):
     def dump_cycle_end_node_lookup(self) -> dict:
         pass
 
+    @abstractmethod
+    def to_json(self) -> dict:
+        pass
+
+    @abstractmethod
+    def reset(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_json(cls, dict: dict) -> 'StateStore':
+        pass
+
+
 
 class InMemoryStateStore(StateStore):
-    def __init__(self, state_store: Optional[dict] = None):
+    def __init__(
+        self,
+        state_store: Optional[dict] = None,
+        cycle_end_node_lookup: Optional[dict[str, str]] = None,
+        cycle_store: Optional[dict[str, list[str]]] = None
+    ):
         if state_store is None:
             self.state_store = {}
         else:
             self.state_store = state_store
 
-        self.cycle_end_node_lookup: dict[str, str] = {}
+        if cycle_store is None:
+            self.cycle_store = {}
+        else:
+            self.cycle_store = cycle_store
+
+        if cycle_end_node_lookup is None:
+            self.cycle_end_node_lookup = {}
+        else:
+            self.cycle_end_node_lookup = cycle_end_node_lookup
+
         self.lock = threading.Lock()
 
-    def register_cycle(self, start_id: str, end_id: str):
+    def reset(
+        self,
+        state_store: Optional[dict] = None,
+        cycle_end_node_lookup: Optional[dict[str, str]] = None,
+        cycle_store: Optional[dict[str, list[str]]] = None
+    ):
+        if state_store is None:
+            self.state_store = {}
+        else:
+            self.state_store = state_store
+
+        if cycle_store is None:
+            self.cycle_store = {}
+        else:
+            self.cycle_store = cycle_store
+
+        if cycle_end_node_lookup is None:
+            self.cycle_end_node_lookup = {}
+        else:
+            self.cycle_end_node_lookup = cycle_end_node_lookup
+
+    def register_cycle(self, node_ids: list[str]):
+        start_id = node_ids[0]
+        end_id = node_ids[-1]
         with self.lock:
             self.cycle_end_node_lookup[start_id] = end_id
+            for node_id in node_ids:
+                self.cycle_store[node_id] = node_ids
+
+    def node_id_in_cycle(self, node_id: str) -> Optional[list[str]]:
+        if node_id in self.cycle_store:
+            return self.cycle_store[node_id]
+        else:
+            return None
 
     def cycle_start_id_ends_at_id(self, start_id: str) -> Optional[str]:
         with self.lock:
@@ -84,3 +149,21 @@ class InMemoryStateStore(StateStore):
     def dump_cycle_end_node_lookup(self) -> dict:
         with self.lock:
             return self.cycle_end_node_lookup
+
+    def dump_cycle_store(self):
+        with self.lock:
+            return self.cycle_store
+
+    def to_json(self) -> dict:
+        return {
+            "cycle_end_node_lookup": self.cycle_end_node_lookup(),
+            "cycle_store": self.dump_cycle_store(),
+            "state_store": self.dump_store()
+        }
+
+    def from_json(cls, dict: dict) -> 'StateStore':
+        return InMemoryStateStore(
+            cycle_store=dict['cycle_store'],
+            cycle_end_node_lookup=dict['cycle_end_node_lookup'],
+            state_store=dict['state_store']
+        )

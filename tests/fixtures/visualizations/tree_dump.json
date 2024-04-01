@@ -1,6 +1,6 @@
 {
     "input": null,
-    "locked_at_node_name": null,
+    "locked_at_step_name": null,
     "nodes": {
         "a": {
             "name": "a",

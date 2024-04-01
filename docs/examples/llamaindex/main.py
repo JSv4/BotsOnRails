@@ -9,12 +9,12 @@ from llama_index.llms.openai import OpenAI
 from llama_index.core import Settings
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.core.retrievers import BaseRetriever
-from BotsOnRails import ExecutionTree, node_for_tree
-from examples.llamaindex.display import display_stock_series_cards
-from examples.llamaindex.models import StockSeriesInfo, ParticipationCap
+from BotsOnRails import ExecutionPath, step_decorator_for_path
+from display import display_stock_series_cards
+from models import StockSeriesInfo, ParticipationCap
 
-tree = ExecutionTree()
-node = node_for_tree(tree)
+tree = ExecutionPath()
+node = step_decorator_for_path(tree)
 
 my_dir = Path(__file__).parent
 credential_file = my_dir / "credentials.json.env"
@@ -40,7 +40,7 @@ Settings.llm = llm
 Settings.embed_model = embed_model
 
 
-@node(start_node=True, next_nodes="check_doc_type")
+@node(path_start=True, next_step="check_doc_type")
 def load_document(doc_dir: str, **kwargs) -> BaseRetriever:
     print(f"Loading dovs from {doc_dir}...")
     documents = SimpleDirectoryReader(doc_dir).load_data()
@@ -53,7 +53,7 @@ def load_document(doc_dir: str, **kwargs) -> BaseRetriever:
     return retriever
 
 
-@node(next_nodes={"incorporation": "extract_stock_info", "other": "end_pipeline"})
+@node(next_step={"incorporation": "extract_stock_info", "other": "end_pipeline"})
 def check_doc_type(retriever: BaseRetriever, *args, **kwargs) -> str:
     retrieved_context = retriever.retrieve("This document, made between this parties as of this date.")
     context = "------\n".join([rc.text for rc in retrieved_context])
@@ -63,7 +63,7 @@ def check_doc_type(retriever: BaseRetriever, *args, **kwargs) -> str:
     return doc_type
 
 
-@node(next_nodes='filter_common', unpack_output=False)
+@node(next_step='filter_common', unpack_output=False)
 def extract_stock_info(*args, **kwargs) -> List[StockSeriesInfo]:
     print(f"extract_stock_info() - runtime kwargs: {kwargs}")
 
@@ -75,14 +75,14 @@ def extract_stock_info(*args, **kwargs) -> List[StockSeriesInfo]:
     return stock_series_list
 
 
-@node(next_nodes=('FOR_EACH', "retrieve_passages"), unpack_output=False)
+@node(next_step=('FOR_EACH', "retrieve_passages"), unpack_output=False)
 def filter_common(stock_series: List[StockSeriesInfo], **kwargs) -> List[StockSeriesInfo]:
     return [
         ss for ss in stock_series if ss.stock_class_name.lower() != 'common'
     ]
 
 
-@node(next_nodes="extract_participation_cap", unpack_output=False)
+@node(next_step="extract_participation_cap", unpack_output=False)
 def retrieve_passages(stock_series: StockSeriesInfo, **kwargs) -> List[str]:
     print(f"retrieve_passages - kwargs: {kwargs}")
     loop_data = kwargs['runtime_args']['for_each_loop']
@@ -100,7 +100,7 @@ def retrieve_passages(stock_series: StockSeriesInfo, **kwargs) -> List[str]:
     return [pc.text for pc in participation_cap_passages]
 
 
-@node(next_nodes="aggregate_data", unpack_output=False)
+@node(next_step="aggregate_data", unpack_output=False)
 def extract_participation_cap(passages: List[str], **kwargs) -> tuple[StockSeriesInfo, Optional[ParticipationCap]]:
     print(f"Extract_participation_cap got iterable data: {kwargs['runtime_args']['for_each_loop']}")
 

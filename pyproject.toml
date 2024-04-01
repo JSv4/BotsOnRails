@@ -68,6 +68,13 @@ dependencies = [
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:BotsOnRails tests}"
 
+[tool.hatch.envs.docs]
+dependencies=[
+  "mkdocs"
+]
+[tool.hatch.envs.docs.scripts]
+run_dev = "mkdocs serve"
+
 [tool.coverage.run]
 source_pkgs = ["BotsOnRails", "tests"]
 branch = true

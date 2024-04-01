@@ -1,16 +1,16 @@
 import unittest
 from typing import NoReturn
 
-from BotsOnRails.decorators import node_for_tree
-from BotsOnRails.tree import ExecutionTree
+from BotsOnRails.decorators import step_decorator_for_path
+from BotsOnRails.rails import ExecutionPath
 
 
 class TestNodeRouting(unittest.TestCase):
     def test_dict_router(self):
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
-        @node(next_nodes={"valid": "handle_valid", "invalid": "handle_invalid"}, start_node=True)
+        @node(next_step={"valid": "handle_valid", "invalid": "handle_invalid"}, path_start=True)
         def wrapped_dict_routing(input_str: str, **kwargs) -> str:
             return input_str
 
@@ -32,8 +32,8 @@ class TestNodeRouting(unittest.TestCase):
 
     def test_functional_router(self):
 
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
         def route_function(input: int) -> str:
             if input % 3 == 0:
@@ -41,9 +41,9 @@ class TestNodeRouting(unittest.TestCase):
             return 'boring_boring'
 
         @node(
-            start_node=True,
-            next_nodes=route_function,
-            func_router_possible_node_annot=[
+            path_start=True,
+            next_step=route_function,
+            func_router_possible_next_step_names=[
                 'boring_boring',
                 'comedy_comes_in_threes'
             ]
@@ -72,18 +72,18 @@ class TestNodeRouting(unittest.TestCase):
         Where we use a functional router, we require you provide a list of possible outputs so we can
         produce a visualization showing the possible execution pathway.
         """
-        tree = ExecutionTree()
-        node = node_for_tree(tree)
+        tree = ExecutionPath()
+        node = step_decorator_for_path(tree)
 
         def route_function(input: int) -> str:
             if input % 3 == 0:
                 return 'comedy_comes_in_threes'
             return 'boring_boring'
 
-        # Leave off the func_router_possible_node_annot
+        # Leave off the func_router_possible_next_step_names
         @node(
-            start_node=True,
-            next_nodes=route_function
+            path_start=True,
+            next_step=route_function
         )
         def start_node(input: int, **kwargs) -> int:
             return input

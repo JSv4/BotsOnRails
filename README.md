@@ -71,7 +71,7 @@ from BotsOnRails import ExecutionTree, node_for_tree
 tree = ExecutionTree()
 node = node_for_tree(tree)
 
-@node(start_node=True, next_nodes="process_data")
+@node(path_start=True, next_nodes="process_data")
 def get_data(**kwargs) -> str:
     # Logic to fetch data
     return data

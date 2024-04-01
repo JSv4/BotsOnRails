@@ -9,7 +9,7 @@ from BotsOnRails.types import OT
 logger = logging.getLogger(__name__)
 
 
-def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
+def step_decorator_for_path(execution_tree, state_store: Optional[StateStore] = None):
     """
     A decorator factory that creates a decorator for registering functions as nodes in a specified execution tree.
 
@@ -24,7 +24,7 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
 
     Returns:
     - A decorator function that takes a function and registers it as a node within the execution tree. This decorator
-      can be customized with node-specific parameters such as `name`, `wait_for_approval`, and `next_nodes` to define
+      can be customized with node-specific parameters such as `name`, `wait_for_approval`, and `next_step` to define
       the node's behavior within the tree. If you pass a tuple with a special operator (currently only for_each) and
       the target node, you can create a loop over outputs of node.
 
@@ -52,7 +52,7 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
     in the execution tree. The `name` parameter allows for the specification of a custom node name, which
     allows for the registration of the same function for use as more than one node. If not provided,
     the function's name will be used. The `wait_for_approval` parameter indicates whether the node's execution should
-    pause, waiting for external approval before proceeding. The `next_nodes` parameter allows for the definition of
+    pause, waiting for external approval before proceeding. The `next_step` parameter allows for the definition of
     dynamic or conditional routing logic, directing the flow from the current node to subsequent nodes based on runtime
     data or conditions.
     """
@@ -64,10 +64,10 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
 
     def node_decorator(
             name: Optional[str] = None,
-            start_node: bool = False,
+            path_start: bool = False,
             wait_for_approval: bool = False,
-            next_nodes: Optional[Callable[[OT], str] | Dict[OT, str] | str | tuple[Literal['FOR_EACH'], str]] = None,
-            func_router_possible_node_annot: Optional[List[str]] = None,
+            next_step: Optional[Callable[[OT], str] | Dict[OT, str] | str | tuple[Literal['FOR_EACH'], str]] = None,
+            func_router_possible_next_step_names: Optional[List[str]] = None,
             unpack_output: bool = True,
             aggregator: bool = False,
     ):
@@ -82,11 +82,11 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
             logger.debug(F"Type_hints: {type_hints}")
             if 'return' in type_hints:
                 output_type = type_hints.pop('return', None)
-                if isinstance(output_type, (list, tuple, List, Tuple)) and isinstance(next_nodes, (tuple, Tuple)):
-                    raise ValueError("You can only use special iteration commands in next_nodes where output "
+                if isinstance(output_type, (list, tuple, List, Tuple)) and isinstance(next_step, (tuple, Tuple)):
+                    raise ValueError("You can only use special iteration commands in next_step where output "
                                      "type is a list or tuple!")
             else:
-                if isinstance(next_nodes, tuple):
+                if isinstance(next_step, tuple):
                     raise ValueError("You can only use the for_each next node command where output type is annotated")
 
             if len(type_hints) > 0:
@@ -98,8 +98,8 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
                 description=func.__doc__ if func.__doc__ is not None else "Function call in DAG",
                 wait_for_approval=wait_for_approval,
                 execute_function=func,
-                route=next_nodes,
-                func_router_possible_node_annot=func_router_possible_node_annot,
+                route=next_step,
+                func_router_possible_next_step_names=func_router_possible_next_step_names,
                 unpack_output=unpack_output,
                 aggregator=aggregator,
                 state_store=state_store
@@ -111,7 +111,7 @@ def node_for_tree(execution_tree, state_store: Optional[StateStore] = None):
                 node_instance.input_type = input_type
 
             # Add the node to the execution tree
-            execution_tree.add_node(name, node_instance, root=start_node)
+            execution_tree.add_node(name, node_instance, root=path_start)
 
             @wraps(func)
             def wrapper(*args, **kwargs):
