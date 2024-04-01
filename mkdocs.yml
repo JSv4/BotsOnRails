@@ -1,5 +1,5 @@
 site_name: BotsOnRails
-site_url: https://example.com/
+site_url: https://jsv4.github.io/BotsOnRails/
 nav:
   - Home: about.md
   - Index: index.md
