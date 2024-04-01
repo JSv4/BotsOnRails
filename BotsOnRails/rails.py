@@ -61,7 +61,7 @@ class ExecutionPath(BaseModel):
     node_names: Dict[UUID4, str] = Field(default={})
     output: Any = Field(default=SpecialTypes.NEVER_RAN)
     compiled: bool = Field(default=False)
-    state_store: StateStore = Field(default_factory=InMemoryStateStore, exclude=True)
+    state_store: StateStore = Field(default_factory=InMemoryStateStore)
     allow_cycles: bool = Field(default=True)
     true_cycles: Optional[list[list[str]]] = Field(default=None)
     for_each_cycles: Optional[list[list[str]]] = Field(default=None)
