@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://example.com/validation/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Type Checking - BotsOnRails</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Type Checking";
+        var mkdocs_page_input_path = "validation.md";
+        var mkdocs_page_url = "/validation/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> BotsOnRails
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../about/">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Index</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../node_syntax/">Syntax Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../resumable_workflows/">Resume</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Type Checking</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#no-nested-cycles">No Nested Cycles</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#return-type-consistency">Return Type Consistency</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../loops/">Loops</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">BotsOnRails</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Type Checking</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="botsonrails-validation-rules">BotsOnRails Validation Rules</h1>
+<p>To help ensure the integrity of your workflows, BotsOnRails enforces certain validation rules. This document outlines the key rules to be aware of.</p>
+<h2 id="no-nested-cycles">No Nested Cycles</h2>
+<p>BotsOnRails does not allow nested cycles in the workflow graph. A nested cycle means a cycle within a cycle. </p>
+<p>For example, this is not allowed:</p>
+<pre><code class="language-python">@step(next_step=&quot;node2&quot;)
+def node1():
+    pass
+
+@step(next_step=&quot;node3&quot;)
+def node2():
+    pass
+
+@step(next_step=&quot;node1&quot;)
+def node3():
+    pass
+</code></pre>
+<p>This creates a cycle <code>node1 -&gt; node2 -&gt; node3 -&gt; node1</code>.</p>
+<p>Cycles are detected when you call <code>compile()</code> on your <code>ExecutionTree</code>. A <code>ValueError</code> will be raised if a nested cycle is found.</p>
+<h2 id="return-type-consistency">Return Type Consistency</h2>
+<p>The return type annotation of a node must match the input type annotation of any nodes it routes to.</p>
+<p>For example, this is valid:</p>
+<pre><code class="language-python">@step(next_step=&quot;node2&quot;)
+def node1() -&gt; int:
+    return 42
+
+@step
+def node2(x: int):
+    print(x)
+</code></pre>
+<p>But this would raise an error:</p>
+<pre><code class="language-python">@step(next_step=&quot;node2&quot;)  
+def node1() -&gt; int:
+    return 42
+
+@step
+def node2(x: str):
+    print(x)
+</code></pre>
+<p>The return type of <code>node1</code> is <code>int</code> but <code>node2</code> expects a <code>str</code> input.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../resumable_workflows/" class="btn btn-neutral float-left" title="Resume"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../loops/" class="btn btn-neutral float-right" title="Loops">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../resumable_workflows/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../loops/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

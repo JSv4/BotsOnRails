@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://example.com/node_syntax/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Syntax Guide - BotsOnRails</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Syntax Guide";
+        var mkdocs_page_input_path = "node_syntax.md";
+        var mkdocs_page_url = "/node_syntax/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> BotsOnRails
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../about/">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Index</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Syntax Guide</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#basic-definition">Basic Definition</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#routing-options">Routing Options</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#static-routing">Static Routing</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#conditional-routing">Conditional Routing</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#dynamic-routing">Dynamic Routing</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#looping">Looping</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#type-annotations">Type Annotations</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../resumable_workflows/">Resume</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../validation/">Type Checking</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../loops/">Loops</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">BotsOnRails</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Syntax Guide</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="botsonrails-node-syntax">BotsOnRails Node Syntax</h1>
+<p>This guide dives deeper into the options available when defining workflow nodes in BotsOnRails.</p>
+<h2 id="basic-definition">Basic Definition</h2>
+<p>As covered in the quickstart, the basic syntax for defining a step first uses the <code>step_decorator_for_path</code> to create
+a decroator - we typically call it a <code>@step</code> decorator - which can then be used on a Python function:</p>
+<pre><code class="language-python">from BotsOnRails import ExecutionPath, step_decorator_for_path
+
+path = ExecutionPath()
+step = step_decorator_for_path(path)
+
+@step(next_step=&quot;process_data&quot;)
+def get_data() -&gt; str:
+    return &quot;Some data&quot;
+</code></pre>
+<p>The <code>@step</code> decorator takes several optional arguments:</p>
+<ul>
+<li><code>path_start</code>: Boolean indicating if this is the entry point node for the workflow</li>
+<li><code>next_step</code>: Specifies which node(s) to execute after this one (more on this below)</li>
+<li><code>wait_for_approval</code>: Boolean indicating if workflow execution should pause after this node for human approval 
+  before proceeding. More on this in the guide on <a href="../resumable_workflows/">resumable workflows</a>. </li>
+</ul>
+<h2 id="routing-options">Routing Options</h2>
+<p>The <code>next_step</code> argument provides several options for controlling the flow of execution:</p>
+<h3 id="static-routing">Static Routing</h3>
+<p>You can route to a single node by providing the name of the node function as a string:</p>
+<pre><code class="language-python">@step(next_step=&quot;node2&quot;)
+def node1():
+    pass
+</code></pre>
+<h3 id="conditional-routing">Conditional Routing</h3>
+<p>To conditionally route based on the output of a node, provide a dictionary mapping output values to node names:</p>
+<pre><code class="language-python">@step(next_step={&quot;foo&quot;: &quot;handle_foo&quot;, &quot;bar&quot;: &quot;handle_bar&quot;})
+def router() -&gt; str:
+    return &quot;foo&quot;
+</code></pre>
+<h3 id="dynamic-routing">Dynamic Routing</h3>
+<p>For even more flexibility, you can provide a function that takes the node output as input and returns the name of the next node:</p>
+<pre><code class="language-python">def router_func(output):
+    if output &gt; 10:
+        return &quot;handle_high&quot;
+    else:
+        return &quot;handle_low&quot;
+
+@step(next_step=router_func)
+def dynamic_router() -&gt; int:
+    return 42
+</code></pre>
+<p><strong>To make full use of functions like type checking and flow visualization</strong> be sure to provide a list of all the possible
+resulting next step names as a list to the <code>func_router_possible_next_step_names</code> argument of the decorator like so:</p>
+<pre><code class="language-python">def router_func(output):
+    if output &gt; 10:
+        return &quot;handle_high&quot;
+    else:
+        return &quot;handle_low&quot;
+
+@step(next_step=router_func, func_router_possible_next_step_names=['handle_high', 'handle_low'])
+def dynamic_router() -&gt; int:
+    return 42
+</code></pre>
+<h3 id="looping">Looping</h3>
+<p>To process each element of an iterable output individually, use the special <code>("FOR_EACH", "node_name")</code> syntax:</p>
+<pre><code class="language-python">@step(next_step=(&quot;FOR_EACH&quot;, &quot;process_item&quot;))
+def get_items() -&gt; List[str]:
+    return [&quot;foo&quot;, &quot;bar&quot;, &quot;baz&quot;]
+</code></pre>
+<p>See the <a href="../loops/">For Each Guide</a> for more details.</p>
+<h2 id="type-annotations">Type Annotations</h2>
+<p>BotsOnRails uses Python type annotations to validate the input and output types of nodes. This helps catch type 
+mismatches and ensures the integrity of data flowing through your workflow.</p>
+<p>Nodes should have type annotations on their input arguments and return value:</p>
+<pre><code class="language-python">@step
+def process_text(text: str) -&gt; str:
+    return text.upper()
+</code></pre>
+<p>When possible, use specific types like <code>str</code>, <code>int</code>, <code>List</code>, <code>Dict</code>, etc. rather than the generic <code>Any</code> type. This 
+enables better type checking. Use <code>NoReturn</code> or leave off a return signature where nothing is returned.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../quickstart/" class="btn btn-neutral float-left" title="Quickstart"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../resumable_workflows/" class="btn btn-neutral float-right" title="Resume">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../quickstart/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../resumable_workflows/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

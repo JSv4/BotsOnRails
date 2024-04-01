@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="None" /><link rel="canonical" href="https://example.com/" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>BotsOnRails</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Index";
+        var mkdocs_page_input_path = "index.md";
+        var mkdocs_page_url = "/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="." class="icon icon-home"> BotsOnRails
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="about/">Home</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href=".">Index</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#why-use-botsonrails">Why use BotsOnRails?</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#getting-started">Getting Started</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="node_syntax/">Syntax Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="resumable_workflows/">Resume</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="validation/">Type Checking</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="loops/">Loops</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href=".">BotsOnRails</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Index</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="botsonrails">BotsOnRails</h1>
+<p>BotsOnRails is a flexible and lightweight Python library designed to make it easy to create complex workflows involving large language models (LLMs), human input, and arbitrary Python functions. It uses a tree-based orchestration model where each node in the tree represents a task or decision point. </p>
+<h2 id="why-use-botsonrails">Why use BotsOnRails?</h2>
+<ul>
+<li>
+<p>Easy Integration of LLMs: BotsOnRails makes it simple to integrate LLMs like OpenAI's GPT models into your workflows using libraries like Marvin.</p>
+</li>
+<li>
+<p>Human-in-the-Loop Support: BotsOnRails has first-class support for pausing execution to allow for human review and approval before proceeding. This allows you to build workflows that combine the power of LLMs with human oversight and decision making.</p>
+</li>
+<li>
+<p>Arbitrary Python Logic: In addition to LLMs, BotsOnRails allows you to incorporate arbitrary Python functions as nodes in your workflow. This gives you complete flexibility to build workflows that leverage any Python libraries or custom logic you need.</p>
+</li>
+<li>
+<p>Type-Safe: BotsOnRails uses Python type annotations to validate that data passing between nodes in your workflow matches the expected types. This catches errors before runtime.</p>
+</li>
+<li>
+<p>Dynamic Routing: Routing between nodes can be determined dynamically based on function outputs, allowing you to build workflows that adapt based on the results of each step.</p>
+</li>
+<li>
+<p>Visualization: BotsOnRails can generate visualizations of your workflow DAG to help you understand and debug your workflows.</p>
+</li>
+</ul>
+<h2 id="examples">Examples</h2>
+<p>To see BotsOnRails in action, check out these example workflows:</p>
+<ul>
+<li>
+<p><a href="examples/content_moderation/main.py">Content Moderation</a>: This example shows how to build a content moderation workflow that uses an LLM to classify text content, pausing for human review if the content is flagged as inappropriate.</p>
+</li>
+<li>
+<p><a href="examples/llamaindex/main.py">AI Stock Analysis</a>: This more complex example ingests a set of documents about a company's stock and uses an LLM along with the LlamaIndex library to extract key information about the stock, demonstrating more advanced workflow capabilities.</p>
+</li>
+<li>
+<p><a href="examples/marvin/agent.py">AI Agent Orchestration</a>: This example demonstrates an AI agent that uses BotsOnRails to flexibly handle different user intents, leveraging tools like Marvin and custom Python functions.</p>
+</li>
+</ul>
+<h2 id="getting-started">Getting Started</h2>
+<p>To use BotsOnRails in your own project, install it via:</p>
+<pre><code>pip install BotsOnRails
+</code></pre>
+<p>Then check out the <a href="quickstart/">Quickstart Guide</a> to learn the key concepts. The <a href="node_syntax/">Node Syntax Guide</a> dives deeper into how to define nodes and route between them.</p>
+<p>One key concept to understand is how BotsOnRails handles looping using its <a href="loops/">For Each Syntax</a>. This allows you to dynamically process each element of an iterable in a type-safe way.</p>
+<p>BotsOnRails has some <a href="validation/">Validation Rules</a> to be aware of that enforce the integrity of your workflow definitions.</p>
+<p>We hope you find BotsOnRails to be a powerful and flexible tool for building LLM workflows! If you have any feedback or questions, please open an issue on our GitHub repo.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="about/" class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="quickstart/" class="btn btn-neutral float-right" title="Quickstart">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="about/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="quickstart/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
+
+<!--
+MkDocs version : 1.5.3
+Build Date UTC : 2024-04-01 18:58:02.722711+00:00
+-->

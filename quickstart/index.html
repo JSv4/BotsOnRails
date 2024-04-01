@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://example.com/quickstart/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Quickstart - BotsOnRails</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Quickstart";
+        var mkdocs_page_input_path = "quickstart.md";
+        var mkdocs_page_url = "/quickstart/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> BotsOnRails
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../about/">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Index</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Quickstart</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#defining-nodes">Defining Nodes</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#building-a-workflow">Building a Workflow</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#executing-a-workflow">Executing a Workflow</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../node_syntax/">Syntax Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../resumable_workflows/">Resume</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../validation/">Type Checking</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../loops/">Loops</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">BotsOnRails</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Quickstart</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="botsonrails-quickstart">BotsOnRails Quickstart</h1>
+<p>This guide will walk you through the key steps and concepts for building a workflow using BotsOnRails.</p>
+<h2 id="defining-nodes">Defining Nodes</h2>
+<p>The key building block in BotsOnRails is a node, which represents a single task or decision point in your workflow. Nodes are defined using normal Python functions, with a few key additions:</p>
+<ol>
+<li>Use the <code>@node</code> decorator to indicate that a function is a workflow node. At least one node must have <code>path_start=True</code> </li>
+<li>Add type annotations to the function indicating the expected input and output types</li>
+<li>Optionally specify a <code>next_step</code> argument indicating which node(s) to execute next</li>
+</ol>
+<p>Here's an example node definition:</p>
+<pre><code class="language-python"># Compile the execution tree
+from BotsOnRails import ExecutionPath, step_decorator_for_path
+
+path = ExecutionPath()
+step = step_decorator_for_path(path)
+
+
+@step(next_nodes=&quot;process_text&quot;, path_start=True)
+def get_user_input() -&gt; str:
+    return input(&quot;Please enter some text: &quot;)
+
+
+@step()
+def process_text(text: str) -&gt; str:
+    return text.upper()
+
+
+path.compile(type_checking=True)
+path.visualize_via_graphviz()
+</code></pre>
+<h2 id="building-a-workflow">Building a Workflow</h2>
+<p>To build a complete workflow, define an <code>ExecutionPath</code> and add your node functions to it:</p>
+<pre><code class="language-python">from BotsOnRails import ExecutionPath, step_decorator_for_path
+
+path = ExecutionPath()
+step = step_decorator_for_path(path)
+
+@step(path_start=True, next_step=&quot;process_text&quot;)
+def get_user_input() -&gt; str:
+    return input(&quot;Please enter some text: &quot;)
+
+@step()
+def process_text(text: str) -&gt; str:
+    return text.upper()
+</code></pre>
+<p>Use the <code>path_start=True</code> argument to indicate which step is the entry point for the path.</p>
+<h2 id="executing-a-workflow">Executing a Workflow</h2>
+<p>To run the workflow, first compile it (you only have to do this once), then call the <code>run</code> method:</p>
+<pre><code class="language-python">path.compile()
+path.run()
+</code></pre>
+<p>This will execute the workflow starting from the designated start node.</p>
+<h2 id="next-steps">Next Steps</h2>
+<p>That covers the basic concepts! For more advanced topics, check out:</p>
+<ul>
+<li>The <a href="../node_syntax/">Node Syntax Guide</a> to learn more techniques for defining nodes and routing </li>
+<li>The <a href="../loops/">For Each Guide</a> to understand BotsOnRails' looping functionality</li>
+<li>The <a href="../validation/">Validation Rules</a> to understand the guardrails BotsOnRails provides</li>
+</ul>
+<p>Happy bot building!</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href=".." class="btn btn-neutral float-left" title="Index"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../node_syntax/" class="btn btn-neutral float-right" title="Syntax Guide">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../node_syntax/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

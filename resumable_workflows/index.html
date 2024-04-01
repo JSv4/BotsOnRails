@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://example.com/resumable_workflows/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Resume - BotsOnRails</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Resume";
+        var mkdocs_page_input_path = "resumable_workflows.md";
+        var mkdocs_page_url = "/resumable_workflows/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> BotsOnRails
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../about/">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Index</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../node_syntax/">Syntax Guide</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Resume</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#marking-a-node-for-human-approval">Marking a Node for Human Approval</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#resuming-a-workflow">Resuming a Workflow</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#detailed-example">Detailed Example</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../validation/">Type Checking</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../loops/">Loops</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">BotsOnRails</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Resume</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="resumable-and-human-approvable-workflows-in-botsonrails">Resumable and Human-Approvable Workflows in BotsOnRails</h1>
+<p>One of the key features of BotsOnRails is the ability to create workflows that can be paused, reviewed by a human, and 
+then resumed. This is particularly useful when you need human judgment or approval at certain points in your workflow.</p>
+<h2 id="marking-a-node-for-human-approval">Marking a Node for Human Approval</h2>
+<p>To mark a node as requiring human approval before the workflow can proceed, use the <code>wait_for_approval=True</code> 
+argument to the <code>@step</code> decorator:</p>
+<pre><code class="language-python">from BotsOnRails import ExecutionPath, step_decorator_for_path
+
+path = ExecutionPath()
+step = step_decorator_for_path(path)
+
+@step(wait_for_approval=True)
+def human_review(text: str) -&gt; bool:
+    print(f&quot;Please review the following text: {text}&quot;)
+    return input(&quot;Approve? (y/n): &quot;).lower() == &quot;y&quot;
+</code></pre>
+<p>When the workflow reaches this node, it will pause execution and wait for human interaction. The node function should 
+prompt the user for input and return a value indicating whether to proceed or not.</p>
+<h2 id="resuming-a-workflow">Resuming a Workflow</h2>
+<p>When a workflow is paused at a human approval node, you can resume it by calling the <code>run_from_step</code> method on the 
+<code>ExecutionPath</code>:</p>
+<pre><code class="language-python">result = path.run(initial_data)
+
+if result == SpecialTypes.EXECUTION_HALTED:
+    print(&quot;Workflow paused for human approval&quot;)
+    approve = input(&quot;Proceed? (y/n): &quot;).lower() == &quot;y&quot;
+
+    if approve:
+        path.run_from_step(
+            halted_node_name,
+            prev_execution_state=tree.model_dump(),
+            has_approval=True
+        )
+    else:
+        print(&quot;Workflow cancelled by user&quot;)
+</code></pre>
+<p>The <code>run</code> method will return a special value <code>SpecialTypes.EXECUTION_HALTED</code> if the workflow is paused at a human approval node. </p>
+<p>To resume, you first need to get the name of the node where execution is halted. You can find this in the <code>locked_at_step_name</code> attribute of the <code>ExecutionPath</code>.</p>
+<p>Then, call <code>run_from_step</code>, passing:
+- The name of the node to resume from
+- The previous execution state, obtained by calling <code>model_dump()</code> on the <code>ExecutionPath</code> 
+- <code>has_approval=True</code> to indicate that the human has approved proceeding</p>
+<p>The workflow will then resume from the approval node.</p>
+<h2 id="detailed-example">Detailed Example</h2>
+<p>Here's a more detailed example of a content moderation workflow that uses human approval:</p>
+<pre><code class="language-python">from BotsOnRails import ExecutionPath, step_decorator_for_path, SpecialTypes
+
+path = ExecutionPath()
+step = step_decorator_for_path(path)
+
+
+@step(path_start=True, next_step={&quot;flagged&quot;: &quot;human_review&quot;, &quot;clean&quot;: &quot;publish&quot;})
+def analyze_content(text: str,  **kwargs) -&gt; str:
+    if &quot;spam&quot; in text:
+        return &quot;flagged&quot;
+    else:
+        return &quot;clean&quot;
+
+
+@step(wait_for_approval=True, next_step={&quot;approve&quot;: &quot;publish&quot;, &quot;reject&quot;: &quot;end&quot;})
+def human_review(text: str, **kwargs) -&gt; str:
+    # You can access data from other nodes using the runtime_args property in the kwargs
+    orig_input = kwargs['runtime_args']['input'][0]
+    print(f&quot;Please review the following content: {orig_input}&quot;)
+    # We set this is a default return type, but we can override this when we resume the workflow
+    return &quot;reject&quot;
+
+
+@step()
+def publish(text: str, **kwargs):
+    print(f&quot;Publishing: {text}&quot;)
+
+
+@step()
+def end(**kwargs):
+    print(&quot;Content rejected&quot;)
+
+
+path.compile()
+
+while True:
+    text = input(&quot;Enter some text to moderate (or 'quit'): &quot;)
+    if text == &quot;quit&quot;:
+        break
+
+    result = path.run(text)
+
+    if result == SpecialTypes.EXECUTION_HALTED:
+        halted_node = path.locked_at_step_name
+        print(f&quot;Workflow paused at {halted_node}&quot;)
+
+        approve = input(&quot;Proceed? (y/n): &quot;).lower() == &quot;y&quot;
+
+        if approve:
+            path.run_from_step(
+                halted_node,
+                prev_execution_state=path.model_dump(),
+                has_approval=True,
+                override_output=&quot;approve&quot;
+            )
+        else:
+            path.run_from_step(
+                halted_node,
+                prev_execution_state=path.model_dump(),
+                has_approval=True,
+                override_output=&quot;reject&quot;
+            )
+</code></pre>
+<p>This workflow first analyzes the input text. If it's flagged as potentially inappropriate, it routes to a 
+<code>human_review</code> node for approval. This node is marked with <code>wait_for_approval=True</code>, so execution will pause here.</p>
+<p>The main loop checks the result of <code>tree.run()</code>. If it's <code>EXECUTION_HALTED</code>, it prompts the user to approve or 
+reject the content. </p>
+<p>If approved, it resumes the workflow from the <code>human_review</code> node with <code>override_output="approve"</code>, which will cause
+the workflow to proceed to the <code>publish</code> node.</p>
+<p>If rejected, it resumes with <code>override_output="reject"</code>, which will route to the <code>end</code> node instead.</p>
+<p>This demonstrates how you can build workflows that flexibly incorporate human judgment and easily resume after human 
+interaction. The <code>wait_for_approval</code> mechanism allows you to designate any node as a pause point, and 
+<code>run_from_step</code> allows you to resume from that point once human input is provided.</p>
+<p>You can also see how the execution state could be easily persisted to disk and then resumed later... the <code>ExecutionPath</code>
+obj instance is a Pydantic model, so we can dump the model out to disk, serialize it, store it, and <strong>return to 
+execution at any arbitrary point in time.</strong></p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../node_syntax/" class="btn btn-neutral float-left" title="Syntax Guide"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../validation/" class="btn btn-neutral float-right" title="Type Checking">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../node_syntax/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../validation/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

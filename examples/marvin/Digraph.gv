@@ -1,0 +1,36 @@
+// Execution Tree Visualization
+digraph {
+	classify_intent [label="classify_intent
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	get_file_to_add_description [label="get_file_to_add_description
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	get_file_to_analyze_description [label="get_file_to_analyze_description
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	get_file_to_delete_description [label="get_file_to_delete_description
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	get_doc_to_delete [label="get_doc_to_delete
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	get_doc_to_analyze [label="get_doc_to_analyze
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	remove_doc [label="remove_doc
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	find_document [label="find_document
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	load_file [label="load_file
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	generate_report [label="generate_report
+(
+    Generate basic information re: the document we're analyzing - doc name, effective date and signing parties.
+    )" color=lightgrey shape=box style=filled]
+	exit [label="exit
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	classify_intent -> get_file_to_add_description [label="if add document" color=blue]
+	classify_intent -> get_file_to_analyze_description [label="if analyze document" color=blue]
+	classify_intent -> get_file_to_delete_description [label="if delete document" color=blue]
+	classify_intent -> exit [label="if exit" color=blue]
+	get_file_to_add_description -> load_file [color=black]
+	get_file_to_analyze_description -> get_doc_to_analyze [color=black]
+	get_file_to_delete_description -> get_doc_to_delete [color=black]
+	get_doc_to_delete -> remove_doc [color=black]
+	get_doc_to_analyze -> generate_report [color=black]
+}

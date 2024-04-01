@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://example.com/loops/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Loops - BotsOnRails</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Loops";
+        var mkdocs_page_input_path = "loops.md";
+        var mkdocs_page_url = "/loops/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> BotsOnRails
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../about/">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Index</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../node_syntax/">Syntax Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../resumable_workflows/">Resume</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../validation/">Type Checking</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Loops</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#basic-syntax">Basic Syntax</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#type-safety">Type Safety</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#aggregation">Aggregation</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">BotsOnRails</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Loops</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="botsonrails-for-each-loops">BotsOnRails For Each Loops</h1>
+<p>A powerful feature of BotsOnRails is the ability to dynamically process each element of an iterable 
+(only lists or tuples ATM) individually using a for each loop. This guide explains how to use this feature.</p>
+<h2 id="basic-syntax">Basic Syntax</h2>
+<p>To use a for each loop, a node must return an iterable output. Then, in the <code>next_step</code> routing specification, use the 
+special tuple syntax <code>("FOR_EACH", "node_name")</code> to indicate that each element of the iterable should be processed 
+individually by the specified next node.</p>
+<p>Here's an example:</p>
+<pre><code class="language-python">@step(next_step=(&quot;FOR_EACH&quot;, &quot;process_item&quot;))
+def get_items() -&gt; List[str]:
+    return [&quot;foo&quot;, &quot;bar&quot;, &quot;baz&quot;]
+
+@step(next_step=&quot;aggregate_results&quot;)  
+def process_item(item: str) -&gt; str:
+    return item.upper()
+
+@step()
+def aggregate_results(item: str) -&gt; str:
+    return item
+</code></pre>
+<p>In this example, <code>get_items</code> returns a list of strings. The <code>("FOR_EACH", "process_item")</code> routing spec indicates that 
+each string should be passed individually to <code>process_item</code>. </p>
+<p>The <code>process_item</code> node receives a single string as input (note the type annotation) and processes it, in this case 
+converting it to uppercase.</p>
+<p>Finally, the results are passed one by one to the <code>aggregate_results</code> node (which would typically aggregate them in 
+some way).</p>
+<h2 id="type-safety">Type Safety</h2>
+<p>For each loops in BotsOnRails are type safe. The return type annotation of the node that initiates the loop must be a 
+<code>List</code> or <code>Tuple</code> (or other iterable) and the input type annotation of the processing node must match the element type 
+of the iterable.</p>
+<p>For example, this is valid:</p>
+<pre><code class="language-python">@step(next_step=(&quot;FOR_EACH&quot;, &quot;process_item&quot;))
+def get_items() -&gt; List[str]:
+    return [&quot;foo&quot;, &quot;bar&quot;, &quot;baz&quot;]
+
+@step
+def process_item(item: str) -&gt; str:
+    return item.upper()
+</code></pre>
+<p>But this would raise a type error:</p>
+<pre><code class="language-python">@step(next_step=(&quot;FOR_EACH&quot;, &quot;process_item&quot;))
+def get_items() -&gt; List[str]:
+    return [&quot;foo&quot;, &quot;bar&quot;, &quot;baz&quot;] 
+
+@step
+def process_item(item: int) -&gt; int: 
+    return item * 2
+</code></pre>
+<p>The processing node expects an <code>int</code> but the for each loop provides a <code>str</code>.</p>
+<h2 id="aggregation">Aggregation</h2>
+<p>After processing each element individually, you often want to aggregate the results back together. This is done in an 
+aggregation node.</p>
+<p>An aggregation node is indicated by the <code>aggregator=True</code> argument to the <code>@step</code> decorator. It must take a single
+input of the same type outputted by the processing node. </p>
+<p>While you might expect an aggregator to return a list as a type signature, it <em>should not</em>. Remember, when your IDE is 
+type checking and warning of mismatches, it's looking at the return signatures within the function. We're doing some 
+backend magic to aggregate everything and storing a list of values from each loop during each execution of the 
+<code>for_each</code> loop. The <code>@step(aggregator=True)</code> step is our best attempt (at the moment) to signal to our execution 
+engine that the logic for the loop ends at the aggregator node and should be aggregated. Typically, you're not going
+to want to do much (if anything) in the aggreagtor other than pass through the received value, which will be aggregated
+by the <code>ExecutionPath</code>.</p>
+<p>Here's an example that extends the previous one to aggregate the uppercased strings into a single string:</p>
+<pre><code class="language-python">@step(next_step=&quot;aggregate_results&quot;)
+def process_item(item: str) -&gt; str:
+    return item.upper()
+
+@step(next_step=&quot;print_list&quot;, aggregator=True)
+def aggregate_results(items: str) -&gt; str:
+    return items
+
+# Note this expects a list whereas the aggregator __function__ provides just a single string. This is due to how we 
+# wrap the functions and perform the `for_each` logic.
+@step()
+def print_list(items: List[str]):
+    print(&quot;Result: &quot; + &quot;, &quot;.join(items))
+</code></pre>
+<p>The <code>aggregate_results</code> step has been marked as an aggregator via <code>aggregator=True</code>. It outputs a string for each list 
+element.</p>
+<p>The <code>print_list</code> node takes the <code>List[str]</code> assembled by the aggregator as input and combines them into a single result 
+string. As discussed, the typing is not perfect here (and we're open to suggestions!). The aggreagtor <strong>function</strong>
+only returns a single item. The following step's function, however, should expect a list of the types that the aggregator
+outputs. </p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../validation/" class="btn btn-neutral float-left" title="Type Checking"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../validation/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
