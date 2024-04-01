@@ -1,0 +1,27 @@
+// Execution Tree Visualization
+digraph {
+	load_document [label="load_document
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	check_doc_type [label="check_doc_type
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	extract_stock_info [label="extract_stock_info
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	filter_common [label="filter_common
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	retrieve_passages [label="retrieve_passages
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	extract_participation_cap [label="extract_participation_cap
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	aggregate_data [label="aggregate_data
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	end_pipeline [label="end_pipeline
+(Function call in DAG)" color=lightgrey shape=box style=filled]
+	load_document -> check_doc_type [color=black]
+	check_doc_type -> extract_stock_info [label="if incorporation" color=blue]
+	check_doc_type -> end_pipeline [label="if other" color=blue]
+	extract_stock_info -> filter_common [color=black]
+	filter_common -> retrieve_passages [label="for_each output item -->" color=blue]
+	aggregate_data -> filter_common [label="for_each output item -->" color=blue]
+	retrieve_passages -> extract_participation_cap [color=black]
+	extract_participation_cap -> aggregate_data [color=black]
+}
