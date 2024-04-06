@@ -362,6 +362,14 @@ def find_cycles_and_for_each_paths(graph, root_node_id: Any) -> tuple[list[str],
 from typing import Union, Optional, get_args, get_origin
 
 
+def is_union_type(target_type) -> bool:
+    origin = get_origin(target_type)
+    return origin is Union
+
+def is_optional_type(target_type) -> bool:
+    origin = get_origin(target_type)
+    return origin is Optional
+
 def check_union_or_optional_overlaps(input_type, output_type):
     """
     Check if two typing annotations (input and output) are potentially compatible.
@@ -408,10 +416,10 @@ def check_union_or_optional_overlaps(input_type, output_type):
 
     # Check if either input or output is an Optional type
     if input_origin is Union and type(None) in get_args(input_type):
-        return is_compatible(get_args(input_type)[0], output_type)
+        return check_union_or_optional_overlaps(get_args(input_type)[0], output_type)
 
     if output_origin is Union and type(None) in get_args(output_type):
-        return is_compatible(input_type, get_args(output_type)[0])
+        return check_union_or_optional_overlaps(input_type, get_args(output_type)[0])
 
     # If neither is a Union or Optional, check for equality
     return input_type == output_type
