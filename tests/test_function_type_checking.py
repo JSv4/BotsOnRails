@@ -3,6 +3,7 @@ from typing import Tuple, Optional, List, Union, NoReturn, Dict, Callable
 
 from BotsOnRails.decorators import step_decorator_for_path
 from BotsOnRails.rails import ExecutionPath
+from BotsOnRails.utils import check_union_or_optional_overlaps
 
 
 class TestTypeChecking(unittest.TestCase):
@@ -412,6 +413,13 @@ class TestTypeChecking(unittest.TestCase):
 
         tree.compile(type_checking=True)
         assert tree.run() == 6
+
+    def test_check_union_or_optional_overlaps(self):
+        assert check_union_or_optional_overlaps(str, Optional[str]) == True
+        assert check_union_or_optional_overlaps(int, Union[None, str, int]) == True
+        assert check_union_or_optional_overlaps(float, Union[str, int]) == False
+        assert check_union_or_optional_overlaps(Union[str, int], Union[int, float]) == True
+        assert check_union_or_optional_overlaps(Optional[str], int) == False
 
 
 if __name__ == '__main__':

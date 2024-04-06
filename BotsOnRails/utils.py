@@ -357,3 +357,69 @@ def find_cycles_and_for_each_paths(graph, root_node_id: Any) -> tuple[list[str],
 
     cycle_tuples = [(cycle[0], cycle[-1]) for cycle in cycles]
     return cycle_tuples, for_each_paths
+
+
+from typing import Union, Optional, get_args, get_origin
+
+
+def is_union_type(target_type) -> bool:
+    origin = get_origin(target_type)
+    return origin is Union
+
+def is_optional_type(target_type) -> bool:
+    origin = get_origin(target_type)
+    return origin is Optional
+
+def check_union_or_optional_overlaps(input_type, output_type):
+    """
+    Check if two typing annotations (input and output) are potentially compatible.
+
+    This function considers Union types and Optional types. If either the input or output
+    is a Union type, it checks for any overlap between the allowed types. If either is an
+    Optional type, it checks compatibility with the non-None type.
+
+    Args:
+        input_type: The input typing annotation.
+        output_type: The output typing annotation.
+
+    Returns:
+        bool: True if the input and output types are potentially compatible, False otherwise.
+
+    Examples:
+        >>> check_union_or_optional_overlaps(str, Optional[str])
+        True
+        >>> check_union_or_optional_overlaps(int, Union[None, str, int])
+        True
+        >>> check_union_or_optional_overlaps(float, Union[str, int])
+        False
+        >>> check_union_or_optional_overlaps(Union[str, int], Union[int, float])
+        True
+        >>> check_union_or_optional_overlaps(Optional[str], int)
+        False
+    """
+    # Check if either input or output is a Union type
+    input_origin = get_origin(input_type)
+    output_origin = get_origin(output_type)
+
+    if input_origin is Union or output_origin is Union:
+        # If both are Union types, check if there's any overlap
+        if input_origin is Union and output_origin is Union:
+            input_args = get_args(input_type)
+            output_args = get_args(output_type)
+            return any(arg in output_args for arg in input_args)
+
+        # If only one is a Union type, check if the other is in the Union
+        if input_origin is Union:
+            return output_type in get_args(input_type)
+        else:
+            return input_type in get_args(output_type)
+
+    # Check if either input or output is an Optional type
+    if input_origin is Union and type(None) in get_args(input_type):
+        return check_union_or_optional_overlaps(get_args(input_type)[0], output_type)
+
+    if output_origin is Union and type(None) in get_args(output_type):
+        return check_union_or_optional_overlaps(input_type, get_args(output_type)[0])
+
+    # If neither is a Union or Optional, check for equality
+    return input_type == output_type
